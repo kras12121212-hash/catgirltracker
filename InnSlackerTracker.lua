@@ -44,7 +44,7 @@ emoteFrame:RegisterEvent("CHAT_MSG_TEXT_EMOTE")
 emoteFrame:SetScript("OnEvent", function(_, _, msg, sender)
     local lowerMsg = msg:lower()
     local playerName = UnitName("player")
-    if sender:find(playerName) and lowerMsg:find("falls asleep") then
+    if sender:find(playerName) and lowerMsg:find("fall asleep") then
         lastSleepTime = time()
         print(" Sleep emote detected, suppressing slacker message for 10 mins.")
     end

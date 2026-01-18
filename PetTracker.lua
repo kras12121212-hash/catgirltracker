@@ -1,117 +1,186 @@
-local npcFound = false
-local function OnAddonActionForbidden(addonName, functionName) -- gets only called if a error was thrown by target unit cat
-	if (addonName == 'CatgirlTracker') then
-		npcFound = true
-	end
-end
-local unitTargetFrame = CreateFrame("FRAME");
+local kittyname = UnitName("player")
 
-unitTargetFrame:RegisterEvent("ADDON_ACTION_FORBIDDEN")  --blizzar internal call that trggers once my addon throws a interface error
-unitTargetFrame:SetScript("OnEvent", function(self, event, ...)
-	if event == "ADDON_ACTION_FORBIDDEN" then
-		OnAddonActionForbidden(...)
-	end
-end)
+CatgirlPetDB = CatgirlPetDB or {}
+CatgirlPetDB.PetLog = CatgirlPetDB.PetLog or {}
+CatgirlPetDB.PetLog[kittyname] = CatgirlPetDB.PetLog[kittyname] or {}
 
-local function ShowBigMessage(msg) -- Call for big message
-    -- Make it BIG
-    RaidWarningFrame:SetScale(2.0)  -- Double the size
+local macroName = "CatNya"
+local catSummoned = false
+local macroReady = false
+local pendingMacroUpdate = false
+local checkDone = false
+local checkPending = false
+local catButton = nil
+local DEBUG = false
 
-    -- Set custom font size for both slots
-    RaidWarningFrameSlot1:SetFont("Fonts\\FRIZQT__.TTF", 40, "OUTLINE")
-    RaidWarningFrameSlot2:SetFont("Fonts\\FRIZQT__.TTF", 40, "OUTLINE")
-
-    -- Repeatedly show the message every 5 seconds for 20 seconds
-    local totalTime = 20
-    local interval = 5
-    local elapsed = 0
-
-    -- First show immediately
-    RaidNotice_AddMessage(RaidWarningFrame, msg, ChatTypeInfo["RAID_WARNING"])
-
-    C_Timer.NewTicker(interval, function()
-        elapsed = elapsed + interval
-        if elapsed < totalTime then
-            RaidNotice_AddMessage(RaidWarningFrame, msg, ChatTypeInfo["RAID_WARNING"])
-        end
-    end)
+local function DebugPrint(...)
+    if not DEBUG then return end
+    print("|cffffcc00[CatgirlTracker Debug]:|r", ...)
 end
 
-
-local function CloseErrorPopUp() --function to suppress error popup
-	if (StaticPopup_HasDisplayedFrames()) then
-        for idx = STATICPOPUP_NUMDIALOGS,1,-1 do
-            local dialog = _G["StaticPopup"..idx]
-            local OnCancel = dialog.OnCancel;
-			local noCancelOnEscape = dialog.noCancelOnEscape;
-			if ( OnCancel and not noCancelOnEscape) then
-				OnCancel(dialog);
-			end
-			StaticPopupSpecial_Hide(dialog)
-        end
-    end
+SLASH_CGCATBTNDEBUG1 = "/cgcatbtndebug"
+SlashCmdList["CGCATBTNDEBUG"] = function()
+    DEBUG = not DEBUG
+    print("|cffffcc00[CatgirlTracker Debug]:|r Button debug " .. (DEBUG and "ON" or "OFF"))
 end
 
--- list of cats to check for
-local catNames = {
-    "Black Tabby",
-    "Siamese",
-    "White Kitten",
-    "Silver Tabby",
-    "Bombay",
-    "Cornish Rex",
-    "Orange Tabby"
-}
+local function GetPetLog()
+    CatgirlPetDB.PetLog[kittyname] = CatgirlPetDB.PetLog[kittyname] or {}
+    return CatgirlPetDB.PetLog[kittyname]
+end
 
-local RCat = false
-local FCat = false
+local function LogPetEvent(eventName)
+    table.insert(GetPetLog(), {
+        timestamp = date("%Y-%m-%d %H:%M"),
+        unixtime = time(),
+        event = eventName,
+        pet = macroName,
+        synced = 0
+    })
+end
 
-local function WarnFirst()
-    if (RCat) then
-    FCat = true -- failed cat sets to true and it stops checking for this session since the cat was forgoten
-    ShowBigMessage("You forgot you Cat -20 CatGirlPoints")
+local function UpdateButtonText()
+    if not catButton then return end
+    if catSummoned then
+        catButton:SetText("Good Kitten!, You Cat is Summoned")
     else
-    RCat = true -- sets that a reminder was displayed for cat next pass without cat is failure
-    ShowBigMessage("Think of your Cat nya!!, You have 5 Minutes")
+        catButton:SetText("Summon your cat Nya !")
     end
 end
 
-local function checkkitten()
-    anycatfound = false -- we set that no cat was found yet before we loop trough all possible cats
-    for _, catName in ipairs(catNames) do
-        MuteSoundFile(567490)
-        MuteSoundFile(567464)
-        npcFound = false
-        TargetUnit(catName)
-        if (npcFound) then
-            anycatfound = true -- if any of the cats hits that point this gets set to true so warn first never is executed
-            -- Hide error message
-            -- WATCH OUT! This might produce taint
-            print("|cffffcc00[CatGirlTracker]:|r Good Kitty your cat was found.")
-            CloseErrorPopUp()
-            UnmuteSoundFile(567490)
-            UnmuteSoundFile(567464)
-            RCat = false -- we reset the remind cat function if a cat was found at some point 
+local function UpdateButtonMacro()
+    if not catButton then return end
+    if InCombatLockdown and InCombatLockdown() then
+        pendingMacroUpdate = true
+        DebugPrint("UpdateButtonMacro blocked in combat")
+        return
+    end
+
+    pendingMacroUpdate = false
+    local macroId = GetMacroIndexByName(macroName)
+    macroReady = macroId and macroId > 0
+    DebugPrint("UpdateButtonMacro macroId:", tostring(macroId), "ready:", tostring(macroReady))
+
+    catButton:SetAttribute("type", "macro")
+    catButton:SetAttribute("type1", "macro")
+    if macroReady then
+        local _, _, body = GetMacroInfo(macroId)
+        if body and body ~= "" then
+            catButton:SetAttribute("macrotext", nil)
+            catButton:SetAttribute("macrotext1", body)
         else
-        -- print("|cffffcc00[CatGirlTracker]:|r we are in cat check false loop")
+            catButton:SetAttribute("macrotext", nil)
+            catButton:SetAttribute("macrotext1", nil)
         end
-	end
-    if not anycatfound then
-    WarnFirst()
+        catButton:SetAttribute("macro", nil)
+        catButton:SetAttribute("macro1", nil)
+    else
+        catButton:SetAttribute("macro", nil)
+        catButton:SetAttribute("macro1", nil)
+        catButton:SetAttribute("macrotext", nil)
+        catButton:SetAttribute("macrotext1", nil)
     end
 end
 
-function isPlayerDead() -- we only check for cat if player is allive 
-    return UnitIsDeadOrGhost("player")
+local function CreateCatButton()
+    if catButton then return end
+    catButton = CreateFrame("Button", "CatgirlSummonCatButton", UIParent, "UIPanelButtonTemplate,SecureActionButtonTemplate")
+    catButton:SetSize(260, 24)
+    catButton:SetPoint("TOP", 0, -180)
+    catButton:RegisterForClicks("LeftButtonDown")
+    catButton:SetAlpha(1.0)
+    catButton:SetMovable(true)
+    catButton:EnableMouse(true)
+    catButton:RegisterForDrag("LeftButton")
+    catButton:SetScript("OnDragStart", function(self)
+        self:StartMoving()
+    end)
+    catButton:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+    end)
+
+    catButton:SetScript("PostClick", function()
+        if not macroReady then
+            print("|cffffcc00[CatgirlTracker]:|r Macro 'CatNya' not found.")
+            return
+        end
+        DebugPrint("PostClick", "macroId:", tostring(GetMacroIndexByName(macroName)),
+            "type:", tostring(catButton:GetAttribute("type")))
+        catSummoned = not catSummoned
+        UpdateButtonText()
+        LogPetEvent(catSummoned and "CatSummoned" or "CatDismissed")
+    end)
+
+    UpdateButtonText()
+    UpdateButtonMacro()
 end
 
+local function SendGuildMessage(msg)
+    if IsInGuild() then
+        SendChatMessage(msg, "GUILD")
+    end
+end
 
--- ctimer means first check for cat is afther 5 minutes
--- then there will be a warning and they have another 5 minutes to spawn there cat before they get punished
+local function RunFiveMinuteCheck()
+    if checkDone then return end
+    if UnitIsDeadOrGhost("player") then
+        checkPending = true
+        return
+    end
 
-C_Timer.NewTicker(300, function() -- check every 5 minutes
-    if not isPlayerDead() and not FCat then
-        checkkitten()
+    checkDone = true
+    checkPending = false
+
+    if catSummoned then
+        SendGuildMessage("Was a good kitten and rembered to summon their Cat")
+        LogPetEvent("CatReminderGood")
+    else
+        SendGuildMessage("Was a Bad Kitten and forgot to summon their cat")
+        LogPetEvent("CatReminderBad")
+    end
+end
+
+local f = CreateFrame("Frame")
+f:RegisterEvent("PLAYER_LOGIN")
+f:RegisterEvent("PLAYER_DEAD")
+f:RegisterEvent("PLAYER_ALIVE")
+f:RegisterEvent("PLAYER_UNGHOST")
+f:RegisterEvent("PLAYER_REGEN_ENABLED")
+f:RegisterEvent("UPDATE_MACROS")
+f:SetScript("OnEvent", function(_, event)
+    if event == "PLAYER_LOGIN" then
+        catSummoned = false
+        CreateCatButton()
+        UpdateButtonText()
+        DebugPrint("PLAYER_LOGIN", "macroId:", tostring(GetMacroIndexByName(macroName)))
+        C_Timer.After(300, RunFiveMinuteCheck)
+        return
+    end
+
+    if event == "PLAYER_DEAD" then
+        catSummoned = false
+        UpdateButtonText()
+        LogPetEvent("CatResetOnDeath")
+        return
+    end
+
+    if event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST" then
+        if checkPending then
+            RunFiveMinuteCheck()
+        end
+        return
+    end
+
+    if event == "PLAYER_REGEN_ENABLED" and pendingMacroUpdate then
+        UpdateButtonMacro()
+        return
+    end
+
+    if event == "UPDATE_MACROS" then
+        DebugPrint("UPDATE_MACROS")
+        UpdateButtonMacro()
+        return
     end
 end)
-print("CatgirlPetTracker loaded!.")
+
+print("CatgirlPetTracker loaded (CatNya button mode).")

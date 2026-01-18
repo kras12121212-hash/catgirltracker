@@ -7,6 +7,11 @@ CatgirlBehaviorDB = CatgirlBehaviorDB or {}
 CatgirlBehaviorDB.BehaviorLog = CatgirlBehaviorDB.BehaviorLog or {}
 CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyname] or {}
 
+local function GetBehaviorLog()
+    CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyname] or {}
+    return CatgirlBehaviorDB.BehaviorLog[kittyname]
+end
+
 --ereminder UI
 local reminder = CreateFrame("Frame", nil, UIParent)
 reminder:SetSize(400, 30)
@@ -34,7 +39,7 @@ local function TriggerBellEvent()
     PlaySoundFile("Interface\\AddOns\\CatgirlTracker\\Sounds\\Bell.ogg", "Master")
     print("|cffffff00CatgirlTracker:|r The bell on your collar jingles softly nya...")
 
-    table.insert(CatgirlBehaviorDB.BehaviorLog[kittyname], {
+    table.insert(GetBehaviorLog(), {
         timestamp = date("%Y-%m-%d %H:%M"),
         unixtime = time(),
         event = "BellJingle",
@@ -61,7 +66,7 @@ end
 -- og Bell State
 local function logBellState(state)
     bellActive = state
-    table.insert(CatgirlBehaviorDB.BehaviorLog[kittyname], {
+    table.insert(GetBehaviorLog(), {
         timestamp = date("%Y-%m-%d %H:%M"),
         unixtime = time(),
         event = "BellState",
@@ -71,7 +76,7 @@ local function logBellState(state)
 end
 
 local function restoreBellState()
-    local log = CatgirlBehaviorDB.BehaviorLog[kittyname]
+    local log = GetBehaviorLog()
     for i = #log, 1, -1 do
         local entry = log[i]
         if entry.event == "BellState" and type(entry.state) == "boolean" then

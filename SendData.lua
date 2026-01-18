@@ -24,9 +24,17 @@ f:SetScript("OnEvent", function(_, event, prefix, msg, channel, sender)
     end
 end)
 -- tis checks if the master is online in the guild
+local function RequestGuildRoster()
+    if C_GuildInfo and C_GuildInfo.GuildRoster then
+        C_GuildInfo.GuildRoster()
+    elseif GuildRoster then
+        GuildRoster()
+    end
+end
+
 function IsGuildMemberOnline(targetName)
     -- Ensure guild roster is up to date
-    GuildRoster()
+    RequestGuildRoster()
 
     -- removes realm name
     local shortName = master:match("^[^%-]+")

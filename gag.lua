@@ -6,6 +6,11 @@ CatgirlBehaviorDB = CatgirlBehaviorDB or {}
 CatgirlBehaviorDB.BehaviorLog = CatgirlBehaviorDB.BehaviorLog or {}
 CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyname] or {}
 
+local function GetBehaviorLog()
+    CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyname] or {}
+    return CatgirlBehaviorDB.BehaviorLog[kittyname]
+end
+
 -- Create main frame
 local gagFrame = CreateFrame("Frame")
 gagFrame:RegisterEvent("CHAT_MSG_WHISPER")
@@ -50,18 +55,33 @@ end
 
 -- Owner lookup from note
 local function getOwnerFromNote()
-    C_GuildInfo.GuildRoster()
+    if not IsInGuild() then
+        return nil
+    end
+
+    if C_GuildInfo and C_GuildInfo.GuildRoster then
+        C_GuildInfo.GuildRoster()
+    elseif GuildRoster then
+        GuildRoster()
+    end
+
     for i = 1, GetNumGuildMembers() do
-        local name, _, _, _, _, _, _, note = GetGuildRosterInfo(i)
-        if name and name:match("^[^%-]+") == kittyname and note then
-            return note:match("owner=([^,]+)")
+        local name, _, _, _, _, _, _, note, officerNote = GetGuildRosterInfo(i)
+        if name and name:match("^[^%-]+") == kittyname then
+            local source = nil
+            if type(officerNote) == "string" and officerNote ~= "" then
+                source = officerNote
+            elseif type(note) == "string" and note ~= "" then
+                source = note
+            end
+            return source and source:match("owner=([^,]+)") or nil
         end
     end
 end
 
 -- Log gag state
        function logGagState(state)
-    table.insert(CatgirlBehaviorDB.BehaviorLog[kittyname], {
+    table.insert(GetBehaviorLog(), {
         timestamp = date("%Y-%m-%d %H:%M"),
         unixtime = time(),
         event = "KittenGag",
@@ -72,7 +92,7 @@ end
 
 -- Restore gag state on login
 local function restoreGagState()
-    local log = CatgirlBehaviorDB.BehaviorLog[kittyname]
+    local log = GetBehaviorLog()
     for i = #log, 1, -1 do
         local entry = log[i]
         if entry.event == "KittenGag" then
@@ -164,15 +184,26 @@ end)
 local originalSendChatMessage = originalSendChatMessage or SendChatMessage
 
 -- Final safe override with gag logic
-SendChatMessage = function(msg, chatType, language, channel)
-    local isSpeech = chatType == "SAY" or chatType == "YELL" or chatType == "PARTY" or chatType == "RAID" or chatType == "GUILD"
+local function IsSpeechChatType(chatType)
+    return chatType == "SAY"
+        or chatType == "YELL"
+        or chatType == "PARTY"
+        or chatType == "PARTY_LEADER"
+        or chatType == "RAID"
+        or chatType == "RAID_LEADER"
+        or chatType == "INSTANCE_CHAT"
+        or chatType == "INSTANCE_CHAT_LEADER"
+        or chatType == "GUILD"
+        or chatType == "OFFICER"
+end
 
-    if gagState == "fullblock" and isSpeech then
+local function ApplyGagToMessage(msg, chatType)
+    if gagState == "fullblock" and IsSpeechChatType(chatType) then
         print("|cffff0000CatgirlTracker:|r Your mask prevents you from speaking at all!")
-        return -- BLOCK ENTIRELY
+        return nil, true
     end
 
-    if gagState ~= "none" and isSpeech then
+    if gagState ~= "none" and IsSpeechChatType(chatType) then
         if gagState == "huge" then
             local gags = { "mmf~", "mrrgghh~", "nnyaa-mmm!", "mmph!", "grrrgh~", "hnnnng~" }
             msg = string.rep(gags[math.random(#gags)] .. " ", math.random(1, 3))
@@ -183,7 +214,37 @@ SendChatMessage = function(msg, chatType, language, channel)
         end
     end
 
-    originalSendChatMessage(msg, chatType, language, channel)
+    return msg, false
+end
+
+local inGagSend = false
+
+SendChatMessage = function(msg, chatType, language, channel)
+    if IsSpeechChatType(chatType) then
+        local updated, blocked = ApplyGagToMessage(msg, chatType)
+        if blocked then
+            return -- BLOCK ENTIRELY
+        end
+        msg = updated
+    end
+    inGagSend = true
+    local ok = originalSendChatMessage(msg, chatType, language, channel)
+    inGagSend = false
+    return ok
+end
+
+if C_ChatInfo and type(C_ChatInfo.SendChatMessage) == "function" then
+    local originalCChatInfoSendChatMessage = C_ChatInfo.SendChatMessage
+    C_ChatInfo.SendChatMessage = function(msg, chatType, language, channel)
+        if not inGagSend and IsSpeechChatType(chatType) then
+            local updated, blocked = ApplyGagToMessage(msg, chatType)
+            if blocked then
+                return -- BLOCK ENTIRELY
+            end
+            msg = updated
+        end
+        return originalCChatInfoSendChatMessage(msg, chatType, language, channel)
+    end
 end
 
 print("GagTracker with Cute Nya Mask loaded.")

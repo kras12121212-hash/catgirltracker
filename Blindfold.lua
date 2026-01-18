@@ -6,6 +6,11 @@ CatgirlBehaviorDB = CatgirlBehaviorDB or {}
 CatgirlBehaviorDB.BehaviorLog = CatgirlBehaviorDB.BehaviorLog or {}
 CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyname] or {}
 
+local function GetBehaviorLog()
+    CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyname] or {}
+    return CatgirlBehaviorDB.BehaviorLog[kittyname]
+end
+
 -- Get owner from officer note
 local function getOwnerFromNote()
     C_GuildInfo.GuildRoster()
@@ -19,7 +24,7 @@ end
 
 -- Logging blindfold state
 local function logBlindfoldState(state)
-    table.insert(CatgirlBehaviorDB.BehaviorLog[kittyname], {
+    table.insert(GetBehaviorLog(), {
         timestamp = date("%Y-%m-%d %H:%M"),
         unixtime = time(),
         event = "KittenBlindfold",
@@ -152,7 +157,7 @@ _G.RemoveBlindfoldbySystem = RemoveBlindfoldbySystem
 
 --  store on Login 
 local function restoreBlindfoldState()
-    local log = CatgirlBehaviorDB.BehaviorLog[kittyname]
+    local log = GetBehaviorLog()
     for i = #log, 1, -1 do
         local entry = log[i]
         if entry.event == "KittenBlindfold" and entry.BlindfoldState then

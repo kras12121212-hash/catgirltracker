@@ -6,6 +6,11 @@ CatgirlBehaviorDB = CatgirlBehaviorDB or {}
 CatgirlBehaviorDB.BehaviorLog = CatgirlBehaviorDB.BehaviorLog or {}
 CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyname] or {}
 
+local function GetBehaviorLog()
+    CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyname] or {}
+    return CatgirlBehaviorDB.BehaviorLog[kittyname]
+end
+
 -- Garbling logic
 local function garbleIncomingText(msg)
     if earmuffState == "KittenEarmuffs" then
@@ -30,7 +35,7 @@ end
 -- Save new state
 local function logEarmuffState(state)
     earmuffState = state
-    table.insert(CatgirlBehaviorDB.BehaviorLog[kittyname], {
+    table.insert(GetBehaviorLog(), {
         timestamp = date("%Y-%m-%d %H:%M"),
         unixtime = time(),
         event = "KittenEarmuffs",
@@ -41,7 +46,7 @@ end
 
 -- Restore saved state
 local function restoreEarmuffState()
-    local log = CatgirlBehaviorDB.BehaviorLog[kittyname]
+    local log = GetBehaviorLog()
     for i = #log, 1, -1 do
         local entry = log[i]
         if entry.event == "KittenEarmuffs" then
