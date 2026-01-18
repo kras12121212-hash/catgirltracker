@@ -1,0 +1,38 @@
+## Interface: 11400
+## Title: CatgirlTracker
+## Notes: Tracks guild events, zone changes, and summoned cats
+## SavedVariables: CatgirlGuildDB, CatgirlZoneDB, CatgirlPetDB, CatgirlEmoteDB, CatgirlBehaviorDB
+
+gag.lua
+GuildTracker.lua
+ZoneTracker.lua
+PetTracker.lua
+HeadPetTracker.lua
+InnSlackerTracker.lua
+NapTracker.lua
+Leash.lua
+Blindfold.lua
+BellCollar.lua
+KittenEars.lua
+CatGirlControlCenter.lua
+SendData.lua
+ReciveData.lua
+KittenLockTracker.lua
+
+KittenMaskZ1.tga
+KittenMaskZ2.tga
+KittenMaskZ3.tga
+KittenMaskZ4.tga
+KittenMaskZ5.tga
+KittenMaskZ6.tga
+KittenMaskZ7.tga
+
+KittenMaskuwZ1.tga
+KittenMaskuwZ2.tga
+KittenMaskuwZ3.tga
+KittenMaskuwZ4.tga
+KittenMaskuwZ5.tga
+KittenMaskuwZ6.tga
+KittenMaskuwZ7.tga
+KittenMaskuwZ8.tga
+KittenMaskuwZ9.tga
