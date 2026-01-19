@@ -8,7 +8,11 @@
 -- Lots of debug so you can see exactly what got written.
 
 local PFX = "|cffffcc00[CatOnlyMacro]:|r "
-local function dprint(...) print(PFX .. string.join(" ", tostringall(...))) end
+local function dprint(...)
+  if CCT_AutoPrint then
+    CCT_AutoPrint(PFX .. string.join(" ", tostringall(...)))
+  end
+end
 
 local MACRO_NAME = "CatNya"
 local ICON = "INV_Misc_QuestionMark"

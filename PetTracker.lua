@@ -11,17 +11,25 @@ local pendingMacroUpdate = false
 local checkDone = false
 local checkPending = false
 local catButton = nil
-local DEBUG = false
+
+local function IsDebugEnabled()
+    return CCT_IsDebugEnabled and CCT_IsDebugEnabled() or false
+end
 
 local function DebugPrint(...)
-    if not DEBUG then return end
-    print("|cffffcc00[CatgirlTracker Debug]:|r", ...)
+    if not IsDebugEnabled() then return end
+    if CCT_AutoPrint then
+        CCT_AutoPrint("|cffffcc00[CatgirlTracker Debug]:|r", ...)
+    else
+        print("|cffffcc00[CatgirlTracker Debug]:|r", ...)
+    end
 end
 
 SLASH_CGCATBTNDEBUG1 = "/cgcatbtndebug"
 SlashCmdList["CGCATBTNDEBUG"] = function()
-    DEBUG = not DEBUG
-    print("|cffffcc00[CatgirlTracker Debug]:|r Button debug " .. (DEBUG and "ON" or "OFF"))
+    if CCT_ToggleDebug then
+        CCT_ToggleDebug()
+    end
 end
 
 local function GetPetLog()
@@ -183,4 +191,4 @@ f:SetScript("OnEvent", function(_, event)
     end
 end)
 
-print("CatgirlPetTracker loaded (CatNya button mode).")
+CCT_AutoPrint("CatgirlPetTracker loaded (CatNya button mode).")

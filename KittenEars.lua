@@ -51,7 +51,7 @@ local function restoreEarmuffState()
         local entry = log[i]
         if entry.event == "KittenEarmuffs" then
             earmuffState = entry.state
-            print("Earmuff state restored:", earmuffState)
+            CCT_AutoPrint("Earmuff state restored:", earmuffState)
             break
         end
     end
@@ -61,13 +61,23 @@ end
 function ApplyEarMuffs(state)
     if state == "KittenEarmuffs" or state == "HeavyEarmuffs" then
         logEarmuffState(state)
-        print("Earmuffs applied:", state)
+        CCT_AutoPrint("Earmuffs applied:", state)
+        if state == "KittenEarmuffs" then
+            CCT_RaidNotice("Earmuffs applied: kitten.")
+        else
+            CCT_RaidNotice("Earmuffs applied: heavy.")
+        end
     end
 end
 
-function RemoveEarMuffs()
+function RemoveEarMuffs(isAuto)
     logEarmuffState("none")
-    print("Earmuffs removed")
+    CCT_AutoPrint("Earmuffs removed")
+    if isAuto then
+        CCT_RaidNotice("Earmuffs removed (timer expired).")
+    else
+        CCT_RaidNotice("Earmuffs removed.")
+    end
 end
 
 _G.RemoveEarMuffs = RemoveEarMuffs
@@ -110,4 +120,4 @@ loginFrame:SetScript("OnEvent", function()
     restoreEarmuffState()
 end)
 
-print("CatgirlEarMuffTracker loaded and filtering chat.")
+CCT_AutoPrint("CatgirlEarMuffTracker loaded and filtering chat.")

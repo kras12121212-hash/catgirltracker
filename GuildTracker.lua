@@ -33,4 +33,4 @@ f:SetScript("OnEvent", function(_, event, arg1, arg2)
     end
 end)
 
-print("CatgirlGuildTracker loaded.")
+CCT_AutoPrint("CatgirlGuildTracker loaded.")

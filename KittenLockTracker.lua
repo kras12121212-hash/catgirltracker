@@ -22,22 +22,22 @@ end
 local function bindUnlockedMessage(bind)
     if bind == "gag" then
         RemoveGagBySystem()
-        print("|cffffff00[System]:|r Your gag lock has expired!")
+        CCT_AutoPrint("|cffffff00[System]:|r Your gag lock has expired!")
 
     elseif bind == "earmuffs" then
-        RemoveEarMuffs()
-        print("|cff88ccff[System]:|r Your earmuffs were removed as the timer expired.")
+        RemoveEarMuffs(true)
+        CCT_AutoPrint("|cff88ccff[System]:|r Your earmuffs were removed as the timer expired.")
 
     elseif bind == "blindfold" then
         RemoveBlindfoldbySystem()
-        print("|cffff99ff[System]:|r The blindfold timer ended. You can see again!")
+        CCT_AutoPrint("|cffff99ff[System]:|r The blindfold timer ended. You can see again!")
 
     elseif bind == "bell" then
         RemoveBellSystem()
-        print("|cffffcc00[System]:|r The bell fell off as the time ran out.")
+        CCT_AutoPrint("|cffffcc00[System]:|r The bell fell off as the time ran out.")
 
     else
-        print("|cffff0000[System]:|r Unknown bind '" .. bind .. "' unlocked.")
+        CCT_AutoPrint("|cffff0000[System]:|r Unknown bind '" .. bind .. "' unlocked.")
     end
 end
 

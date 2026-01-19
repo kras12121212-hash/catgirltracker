@@ -98,16 +98,16 @@ local function restoreGagState()
         if entry.event == "KittenGag" then
             if entry.Gagstate == "Gag" then
                 gagState = "huge"
-                print(" Re-applying huge gag from previous session")
+                CCT_AutoPrint(" Re-applying huge gag from previous session")
             elseif entry.Gagstate == "LightGag" then
                 gagState = "small"
-                print(" Re-applying light gag from previous session")
+                CCT_AutoPrint(" Re-applying light gag from previous session")
             elseif entry.Gagstate == "FullBlock" then
                 gagState = "fullblock"
-                print(" Re-applying full mask gag from previous session")
+                CCT_AutoPrint(" Re-applying full mask gag from previous session")
             elseif entry.Gagstate == "NyaMask" then
                 gagState = "nyamask"
-                print(" Re-applying Cute Nya Mask from previous session")
+                CCT_AutoPrint(" Re-applying Cute Nya Mask from previous session")
             else
                 gagState = "none"
             end
@@ -120,7 +120,8 @@ end
 function RemoveGagBySystem()
     gagState = "none"
     logGagState("UnGag")
-    print("|cffffff00[System]:|r Your gag has been automatically removed nya~")
+    CCT_AutoPrint("|cffffff00[System]:|r Your gag has been automatically removed nya~")
+    CCT_RaidNotice("Gag removed (timer expired).")
 end
 
 _G.RemoveGagBySystem = RemoveGagBySystem
@@ -146,29 +147,34 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
             gagState = "huge"
             logGagState("Gag")
             print("|cffff66ccCatgirlTracker:|r You've been heavily gagged nya~")
+            CCT_RaidNotice("Gag applied: heavy gag.")
             SendChatMessage("Has been gagged with a huge gag NYA!!! She's already whimpering... );", "WHISPER", nil, sender)
 
         elseif msg:find("small silken gag") then
             gagState = "small"
             logGagState("LightGag")
             print("|cffcc88ffCatgirlTracker:|r A small gag muffles your words...")
+            CCT_RaidNotice("Gag applied: small gag.")
             SendChatMessage("Has been gagged with a small gag. Hopefully that will be a lesson.", "WHISPER", nil, sender)
 
         elseif msg:find("gag and") then
             gagState = "fullblock"
             logGagState("FullBlock")
             print("|cffff0000CatgirlTracker:|r You've been fully muzzled. No words can escape now!")
+            CCT_RaidNotice("Gag applied: full mask gag.")
             SendChatMessage("She has been fully masked and gagged... not a sound can escape! Nya~", "WHISPER", nil, sender)
 
         elseif msg:find("gag has been removed") then
             gagState = "none"
             logGagState("none")
             print("|cffaaffaaCatgirlTracker:|r You've been ungagged nya~")
+            CCT_RaidNotice("Gag removed.")
             SendChatMessage("Has been ungagged. She may speak freely again~", "WHISPER", nil, sender)
 
         elseif msg:find("cute~") then
             gagState = "nyamask"
             logGagState("NyaMask")
+            CCT_RaidNotice("Gag applied: cute mask.")
             print("|cffff88eeCatgirlTracker:|r You’re overcome with the urge to add ~Nya~ to everything!")
             SendChatMessage("Has been given a cute kitten mask. She's meowing every sentence! UwU", "WHISPER", nil, sender)
         end
@@ -247,4 +253,4 @@ if C_ChatInfo and type(C_ChatInfo.SendChatMessage) == "function" then
     end
 end
 
-print("GagTracker with Cute Nya Mask loaded.")
+CCT_AutoPrint("GagTracker with Cute Nya Mask loaded.")

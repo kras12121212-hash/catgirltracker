@@ -14,14 +14,14 @@ f:RegisterEvent("CHAT_MSG_TEXT_EMOTE")
 f:RegisterEvent("CHAT_MSG_EMOTE")
 
 f:SetScript("OnEvent", function(_, event, msg, sender)
-    print(" EMOTE RECEIVED:", msg, "FROM:", sender)
+    CCT_AutoPrint(" EMOTE RECEIVED:", msg, "FROM:", sender)
 
     local lowerMsg = msg:lower()
     local now = time()
     local affectionType = nil
 
     -- Debug: show raw lowercased message
-    print(" lowerMsg:", lowerMsg)
+    CCT_AutoPrint(" lowerMsg:", lowerMsg)
 
     if lowerMsg:find("pets you") then
         affectionType = "Headpet"
@@ -37,7 +37,7 @@ f:SetScript("OnEvent", function(_, event, msg, sender)
 
     -- Debug: did we detect an affection type?
     if affectionType then
-        print(" Detected affection:", affectionType)
+        CCT_AutoPrint(" Detected affection:", affectionType)
 
         local success = pcall(function()
             table.insert(CatgirlEmoteDB.EmoteLog[kittyname], {
@@ -48,9 +48,9 @@ f:SetScript("OnEvent", function(_, event, msg, sender)
                 synced = 0
             })
         end)
-        print(" Log insert:", success)
+        CCT_AutoPrint(" Log insert:", success)
     
-        print(string.format(" Tracked affection from %s: %s", sender, affectionType))
+        CCT_AutoPrint(string.format(" Tracked affection from %s: %s", sender, affectionType))
     
         local outMsg
         if affectionType == "Spanked" then
@@ -74,8 +74,8 @@ f:SetScript("OnEvent", function(_, event, msg, sender)
 
         lastAffectionPost = now
     else
-        print(" No matching affection found in emote.")
+        CCT_AutoPrint(" No matching affection found in emote.")
     end
 end)
 
-print("CatgirlHeadPetTracker loaded.")
+CCT_AutoPrint("CatgirlHeadPetTracker loaded.")

@@ -35,7 +35,7 @@ local function logSlackingOff(zone, subzone)
         synced = 0
     })
 
-    print(" Logged slagging off in:", location)
+    CCT_AutoPrint(" Logged slagging off in:", location)
 end
 
 -- Monitor EMOTES for /sleep
@@ -46,7 +46,7 @@ emoteFrame:SetScript("OnEvent", function(_, _, msg, sender)
     local playerName = UnitName("player")
     if sender:find(playerName) and lowerMsg:find("fall asleep") then
         lastSleepTime = time()
-        print(" Sleep emote detected, suppressing slacker message for 10 mins.")
+        CCT_AutoPrint(" Sleep emote detected, suppressing slacker message for 10 mins.")
     end
 end)
 
@@ -56,19 +56,19 @@ C_Timer.NewTicker(10, function()
     local subzone = GetSubZoneText() or ""
 
     if IsResting() then
-        print(" Resting detected in:", zone, "/", subzone)
+        CCT_AutoPrint(" Resting detected in:", zone, "/", subzone)
 
         if not bigCities[zone] then
             if not restingStart then
                 restingStart = time()
-                print(" Started resting timer...")
+                CCT_AutoPrint(" Started resting timer...")
             elseif not hasPosted and (time() - restingStart) >= 600 then
                 -- Check if recently used /sleep
                 if (time() - lastSleepTime) < 1200 then
-                    print(" Catgirl is sleeping cutely, not slacking off.")
+                    CCT_AutoPrint(" Catgirl is sleeping cutely, not slacking off.")
                 else
                     local msg = "Was caught slagging off in the inn again nya!"
-                    print(" Sending guild message:", msg)
+                    CCT_AutoPrint(" Sending guild message:", msg)
                     if IsInGuild() then SendChatMessage(msg, "GUILD") end
 
                     logSlackingOff(zone, subzone)
@@ -85,4 +85,4 @@ C_Timer.NewTicker(10, function()
     end
 end)
 
-print("Catgirl InnSlackerTracker with sleep emote filter loaded.")
+CCT_AutoPrint("Catgirl InnSlackerTracker with sleep emote filter loaded.")

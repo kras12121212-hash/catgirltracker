@@ -3,6 +3,15 @@ local master = nil
 local addonPrefix = "CatgirlTracker"
 local kittyname = UnitName("player")
 
+-- Route module prints through the shared debug gate.
+local function AutoPrint(...)
+    if CCT_AutoPrint then
+        CCT_AutoPrint(...)
+    end
+end
+
+local print = AutoPrint
+
 
 local f = CreateFrame("Frame") -- we create a fram nya 
 
@@ -109,7 +118,7 @@ C_Timer.NewTicker(3, function()
                 break -- kills it afther sync one entry --only breaks out of logtable loop not the c ticker one
             end
         end
-    else
+    elseif not logTableGuild then
         print("No guild log found for", kittyname)
     end
     -- print("test afther guild")
@@ -123,7 +132,7 @@ C_Timer.NewTicker(3, function()
                 break -- kills it afther sync one entry 
             end
         end
-    else
+    elseif not logTablePet then
         print("No Pet log found for", kittyname)
     end
     -- print ("test afther pet")
@@ -138,7 +147,7 @@ C_Timer.NewTicker(3, function()
                 break -- kills it afther sync one entry -
             end
         end
-    else
+    elseif not logTableZone then
         print("No guild Zone log found for", kittyname)
     end
     -- print ("test afther zone")
@@ -176,7 +185,7 @@ end
                 break -- kills it afther sync one entry -
             end
         end
-    else
+    elseif not logTableBehavior then
         print("No behavior log found for", kittyname)
     end
     -- print ("test afther zone")
@@ -203,7 +212,7 @@ end
                 break
             end
         end
-    else
+    elseif not logTableEmote then
         print("No emote log found for", kittyname)
     end
 

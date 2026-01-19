@@ -19,7 +19,7 @@ local function logZone()
             instanceType = instanceType or "none",
             synced = 0
         })
-        print("|cff33ff99CatgirlTracker:|r Entered zone: " .. zone)
+        CCT_AutoPrint("|cff33ff99CatgirlTracker:|r Entered zone: " .. zone)
     end
 end
 
@@ -45,4 +45,4 @@ zoneFrame:SetScript("OnEvent", function(_, event)
     delayedLog(1)
 end)
 
-print("Catgirl ZoneTracker loaded.")
+CCT_AutoPrint("Catgirl ZoneTracker loaded.")

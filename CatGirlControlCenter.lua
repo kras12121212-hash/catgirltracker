@@ -160,4 +160,4 @@ SlashCmdList["CGCC"] = function()
     end)
 end
 
-print("CatGirlControlCenter loaded.")
+CCT_AutoPrint("CatGirlControlCenter loaded.")

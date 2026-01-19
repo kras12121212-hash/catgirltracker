@@ -22,16 +22,23 @@ GetBehaviorLog().LeashBindings = savedBindings
 local pawIconFrame = nil
 local fullScreenButton = nil
 
-local DEBUG = false
+local function IsDebugEnabled()
+    return CCT_IsDebugEnabled and CCT_IsDebugEnabled() or false
+end
 
 local function DebugPrint(...)
-    if not DEBUG then return end
-    print("|cffff88ff[CatgirlTracker]|r", ...)
+    if not IsDebugEnabled() then return end
+    if CCT_AutoPrint then
+        CCT_AutoPrint("|cffff88ff[CatgirlTracker]|r", ...)
+    else
+        print("|cffff88ff[CatgirlTracker]|r", ...)
+    end
 end
 
 local function ToggleDebug()
-    DEBUG = not DEBUG
-    print("|cffff88ff[CatgirlTracker]|r Debug " .. (DEBUG and "ON" or "OFF"))
+    if CCT_ToggleDebug then
+        CCT_ToggleDebug()
+    end
 end
 
 SLASH_CGDEBUG1 = "/cgdebug"
@@ -41,7 +48,7 @@ SLASH_CGLEASHDEBUG1 = "/cgleashdebug"
 SlashCmdList["CGLEASHDEBUG"] = ToggleDebug
 
 local function DumpButtonAttributes(prefix)
-    if not DEBUG or not fullScreenButton then return end
+    if not IsDebugEnabled() or not fullScreenButton then return end
     DebugPrint(prefix or "Button", "shown:", tostring(fullScreenButton:IsShown()),
         "enabled:", tostring(fullScreenButton:IsEnabled()),
         "size:", string.format("%dx%d", fullScreenButton:GetWidth(), fullScreenButton:GetHeight()),
@@ -201,7 +208,7 @@ local function updateButtonForFollow()
             fullScreenButton:SetAttribute("macroname1", nil)
             fullScreenButton:SetAttribute("macrotext", nil)
             fullScreenButton:SetAttribute("macrotext1", nil)
-            if DEBUG then
+            if IsDebugEnabled() then
                 local slot = GetActionButton1Slot()
                 if slot then
                     local actionType, id = GetActionInfo(slot)
@@ -303,7 +310,7 @@ leashFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
     if event == "PLAYER_LOGIN" then
         local restored, storedLeasher = checkLeashStateFromLog()
         if restored and storedLeasher then
-            print("|cffffff00CatgirlTracker:|r Restoring leash state.")
+            CCT_AutoPrint("|cffffff00CatgirlTracker:|r Restoring leash state.")
             isLeashed = true
             leasher = storedLeasher
             savedBindings = GetBehaviorLog().LeashBindings or {}
@@ -343,6 +350,7 @@ leashFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
 
             SendChatMessage("You have clipped the leash onto " .. kittyname .. "... There's no escape now, nya~", "WHISPER", nil, sender)
             print("|cffffff00CatgirlTracker:|r Leashed by " .. leasher .. " nya~")
+            CCT_RaidNotice("Leash applied.")
 
         elseif msgLower == "unleash" and isLeashed and shortName == leasher then
             restoreActionBar()
@@ -353,6 +361,7 @@ leashFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
 
             SendChatMessage("The leash slips free from " .. kittyname .. ". She's free... for now nya~", "WHISPER", nil, sender)
             print("|cffffff00CatgirlTracker:|r Unleashed nya~")
+            CCT_RaidNotice("Leash removed.")
             leasher = nil
         end
     end
@@ -362,4 +371,4 @@ end)
 leashFrame:RegisterEvent("CHAT_MSG_WHISPER")
 leashFrame:RegisterEvent("PLAYER_LOGIN")
 
-print("LeashTracker loaded with full persistence and empty slot fix.")
+CCT_AutoPrint("LeashTracker loaded with full persistence and empty slot fix.")

@@ -150,7 +150,8 @@ end
 function RemoveBlindfoldbySystem()
         BlindfoldSet("remove")
         logBlindfoldState("remove")
-    print("|cffffff00[System]:|r ttttttttt")
+    CCT_AutoPrint("|cffffff00[System]:|r ttttttttt")
+    CCT_RaidNotice("Blindfold removed (timer expired).")
 end
 _G.RemoveBlindfoldbySystem = RemoveBlindfoldbySystem
 
@@ -189,23 +190,27 @@ f:SetScript("OnEvent", function(_, event, msg, sender)
     if msg:find("light blindfold") then
         BlindfoldSet("light")
         logBlindfoldState("light")
+        CCT_RaidNotice("Blindfold applied: light.")
         SendChatMessage("Oh Nyo a blurry light blindfold... should better Behave or it gets worse!", "WHISPER", nil, sender)
 
     elseif msg:find("kitty blindfold") then
         BlindfoldSet("mask")
         logBlindfoldState("mask")
+        CCT_RaidNotice("Blindfold applied: kitty mask.")
         SendChatMessage("Wearing a cute kitty blindfold... vision limited nya~", "WHISPER", nil, sender)
 
     elseif msg:find("full blindfold") then
         BlindfoldSet("full")
         logBlindfoldState("full")
+        CCT_RaidNotice("Blindfold applied: full.")
         SendChatMessage("Can't see anything! It's all black nya!", "WHISPER", nil, sender)
 
     elseif msg:find("removed your blindfold") then
         BlindfoldSet("remove")
         logBlindfoldState("remove")
+        CCT_RaidNotice("Blindfold removed.")
         SendChatMessage("Blindfold removed... finally I can see again nya~", "WHISPER", nil, sender)
     end
 end)
 
-print("BlindfoldTracker with animated mask loaded.")
+CCT_AutoPrint("BlindfoldTracker with animated mask loaded.")

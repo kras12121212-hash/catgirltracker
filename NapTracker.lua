@@ -1,5 +1,20 @@
 local kittyname = UnitName("player")
 
+-- Route module prints through the shared debug gate.
+local function AutoPrint(...)
+    if CCT_AutoPrint then
+        CCT_AutoPrint(...)
+    end
+end
+
+local print = AutoPrint
+
+local function DebugSay(msg)
+    if CCT_IsDebugEnabled and CCT_IsDebugEnabled() then
+        SendChatMessage(msg, "SAY")
+    end
+end
+
 CatgirlBehaviorDB = CatgirlBehaviorDB or {}
 CatgirlBehaviorDB.BehaviorLog = CatgirlBehaviorDB.BehaviorLog or {}
 CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyname] or {}
@@ -107,17 +122,17 @@ local function napMonitor()
 
             if napDuration < 600 then
                 print("Woke up too early")
-                SendChatMessage("DEBUG: WokeUpToEarly", "SAY")
+                DebugSay("DEBUG: WokeUpToEarly")
                 logNapResult("WokeUpToEarly")
                 announceToGuild("Was told to take her kitty Nap but was a cranky kitten that got up to early")
             elseif napDuration > 1200 then
                 print("Overslept")
-                SendChatMessage("DEBUG: Oversleept (after move)", "SAY")
+                DebugSay("DEBUG: Oversleept (after move)")
                 logNapResult("Oversleept")
                 announceToGuild("Was told to take a Nap but decided to sleep all day ! Bad Lazy Kitten !")
             else
                 print("Slept as told")
-                SendChatMessage("DEBUG: SleeptAsTold", "SAY")
+                DebugSay("DEBUG: SleeptAsTold")
                 logNapResult("SleeptAsTold")
                 announceToGuild("Was a good kitten and took a nap as told make sure to give her headpets and praises Nya")
             end
@@ -127,7 +142,7 @@ local function napMonitor()
             napActive = false
             inNapWindow = false
             setNextNapTime()
-            SendChatMessage("DEBUG: Oversleept (no move)", "SAY")
+            DebugSay("DEBUG: Oversleept (no move)")
             logNapResult("Oversleept")
             announceToGuild("Was told to take a Nap but decided to sleep all day ! Bad Lazy Kitten !")
         end
@@ -136,7 +151,7 @@ local function napMonitor()
         print(" Nap not taken at all")
         inNapWindow = false
         setNextNapTime()
-        SendChatMessage("DEBUG: DidNotSleep", "SAY")
+        DebugSay("DEBUG: DidNotSleep")
         logNapResult("DidNotSleep")
         announceToGuild("Was told to take a Nap but did not Listen and should be punished by her owner.")
     end

@@ -1,4 +1,13 @@
 local kittyname = UnitName("player")
+
+-- Route module prints through the shared debug gate.
+local function AutoPrint(...)
+    if CCT_AutoPrint then
+        CCT_AutoPrint(...)
+    end
+end
+
+local print = AutoPrint
 local addonPrefix = "CatgirlTracker"
 local masterName = "Holykitten" -- short name only (no realm)
 local myName = UnitName("player")

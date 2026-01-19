@@ -37,7 +37,7 @@ local function TriggerBellEvent()
     if not bellActive then return end
 
     PlaySoundFile("Interface\\AddOns\\CatgirlTracker\\Sounds\\Bell.ogg", "Master")
-    print("|cffffff00CatgirlTracker:|r The bell on your collar jingles softly nya...")
+    CCT_AutoPrint("|cffffff00CatgirlTracker:|r The bell on your collar jingles softly nya...")
 
     table.insert(GetBehaviorLog(), {
         timestamp = date("%Y-%m-%d %H:%M"),
@@ -52,7 +52,7 @@ local function scheduleNextBell()
     bellTimerScheduled = true
 
     local delay = math.random(120, 300) -- 2 to 5 minutes
-    print("|cffffff00CatgirlTracker:|r Bell will jingle from time to time")
+    CCT_AutoPrint("|cffffff00CatgirlTracker:|r Bell will jingle from time to time")
 
     C_Timer.After(delay, function()
         bellTimerScheduled = false
@@ -84,11 +84,11 @@ local function restoreBellState()
                 bellActive = true
                 reminder:Show()
                 scheduleNextBell()
-                print("|cffffff00CatgirlTracker:|r Restored bell state: ON")
+                CCT_AutoPrint("|cffffff00CatgirlTracker:|r Restored bell state: ON")
             else
                 bellActive = false
                 reminder:Hide()
-                print("|cffffff00CatgirlTracker:|r Restored bell state: OFF")
+                CCT_AutoPrint("|cffffff00CatgirlTracker:|r Restored bell state: OFF")
             end
             break
         end
@@ -117,10 +117,12 @@ f:SetScript("OnEvent", function(_, event, msg, sender)
             reminder:Show()
             scheduleNextBell()
             print("|cffffff00CatgirlTracker:|r You now wear a jingling bell on your collar nya...")
+            CCT_RaidNotice("Bell attached.")
         elseif lower:find("removes the bell") and shortName == owner then
             logBellState(false)
             reminder:Hide()
             print("|cffffff00CatgirlTracker:|r The bell has been removed... you're safe for now nya.")
+            CCT_RaidNotice("Bell removed.")
         end
     end
 end)
@@ -142,8 +144,9 @@ end
 function RemoveBellSystem()
     logBellState(false)
     reminder:Hide()
-    print("|cffffff00[System]:|r Your bell  has been automatically removed nya~")
+    CCT_AutoPrint("|cffffff00[System]:|r Your bell  has been automatically removed nya~")
+    CCT_RaidNotice("Bell removed (timer expired).")
 end
 _G.RemoveBellSystem = RemoveBellSystem
 
-print("Bell Collar RP Module loaded.")
+CCT_AutoPrint("Bell Collar RP Module loaded.")
