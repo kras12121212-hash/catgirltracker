@@ -1,6 +1,6 @@
 local kittyname = UnitName("player")
-local bellActive = false
-local bellTimerScheduled = false
+local tailBellActive = false
+local tailBellTimerScheduled = false
 
 -- DB Setup
 CatgirlBehaviorDB = CatgirlBehaviorDB or {}
@@ -15,9 +15,9 @@ end
 --ereminder UI
 local reminder = CreateFrame("Frame", nil, UIParent)
 reminder:SetSize(400, 30)
-reminder:SetPoint("TOP", UIParent, "TOP", 0, -50)
+reminder:SetPoint("TOP", UIParent, "TOP", 0, -60)
 local text = reminder:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-text:SetText("Kitten is wearing a Tail bell it will ring awith every step.")
+text:SetText("Kitten is wearing a tail bell; it will ring with every step.")
 text:SetPoint("CENTER")
 reminder:Hide()
 
@@ -32,31 +32,31 @@ function getOwnerFromNote()
     end
 end
 
---   Bell Trigger
+-- Tail bell trigger
 local function TriggerBellEvent()
-    if not bellActive then return end
+    if not tailBellActive then return end
+    if IsPlayerMoving and not IsPlayerMoving() then return end
 
-    PlaySoundFile("Interface\\AddOns\\CatgirlTracker\\Sounds\\Bell.ogg", "Master")
-    CCT_AutoPrint("|cffffff00CatgirlTracker:|r The bell on your collar jingles softly nya...")
-
+    PlaySoundFile("Interface\\AddOns\\CatgirlTracker\\Sounds\\sbell4seconds.ogg", "Master")
     table.insert(GetBehaviorLog(), {
         timestamp = date("%Y-%m-%d %H:%M"),
         unixtime = time(),
-        event = "BellJingle",
+        event = "TailBellJingle",
     })
+
 end
 
 -- bell RP Timer
 local function scheduleNextBell()
-    if bellTimerScheduled then return end
-    bellTimerScheduled = true
+    if tailBellTimerScheduled then return end
+    tailBellTimerScheduled = true
 
-    local delay = math.random(120, 300) -- 2 to 5 minutes
-    CCT_AutoPrint("|cffffff00CatgirlTracker:|r Bell will jingle from time to time")
+    local delay = math.random(5, 6) -- 5 to 6 seconds
+    CCT_AutoPrint("|cffffff00CatgirlTracker:|r Tail bell will jingle frequently")
 
     C_Timer.After(delay, function()
-        bellTimerScheduled = false
-        if bellActive then
+        tailBellTimerScheduled = false
+        if tailBellActive then
             TriggerBellEvent()
         end
         scheduleNextBell()
@@ -64,12 +64,12 @@ local function scheduleNextBell()
 end
 
 -- og Bell State
-local function logBellState(state)
-    bellActive = state
+local function logTailBellState(state)
+    tailBellActive = state
     table.insert(GetBehaviorLog(), {
         timestamp = date("%Y-%m-%d %H:%M"),
         unixtime = time(),
-        event = "BellState",
+        event = "TailBellState",
         state = state,
         synced = 0
     })
@@ -79,16 +79,16 @@ local function restoreBellState()
     local log = GetBehaviorLog()
     for i = #log, 1, -1 do
         local entry = log[i]
-        if entry.event == "BellState" and type(entry.state) == "boolean" then
+        if entry.event == "TailBellState" and type(entry.state) == "boolean" then
             if entry.state then
-                bellActive = true
+                tailBellActive = true
                 reminder:Show()
                 scheduleNextBell()
-                CCT_AutoPrint("|cffffff00CatgirlTracker:|r Restored bell state: ON")
+                CCT_AutoPrint("|cffffff00CatgirlTracker:|r Restored tail bell state: ON")
             else
-                bellActive = false
+                tailBellActive = false
                 reminder:Hide()
-                CCT_AutoPrint("|cffffff00CatgirlTracker:|r Restored bell state: OFF")
+                CCT_AutoPrint("|cffffff00CatgirlTracker:|r Restored tail bell state: OFF")
             end
             break
         end
@@ -112,24 +112,24 @@ f:SetScript("OnEvent", function(_, event, msg, sender)
         local owner = getOwnerFromNote() or ""
         local lower = msg:lower()
 
-        if lower:find("tiny bell to your collar") and shortName == owner then
-            logBellState(true)
+        if lower:find("tiny bell to your tail") and shortName == owner then
+            logTailBellState(true)
             reminder:Show()
             scheduleNextBell()
-            print("|cffffff00CatgirlTracker:|r You now wear a jingling bell on your collar nya...")
-            CCT_RaidNotice("Bell attached.")
-        elseif lower:find("removes the bell") and shortName == owner then
-            logBellState(false)
+            print("|cffffff00CatgirlTracker:|r You now wear a jingling tail bell nya...")
+            CCT_RaidNotice("Tail bell attached.")
+        elseif lower:find("removes the tail bell") and shortName == owner then
+            logTailBellState(false)
             reminder:Hide()
-            print("|cffffff00CatgirlTracker:|r The bell has been removed... you're safe for now nya.")
-            CCT_RaidNotice("Bell removed.")
+            print("|cffffff00CatgirlTracker:|r The tail bell has been removed... you're safe for now nya.")
+            CCT_RaidNotice("Tail bell removed.")
         end
     end
 end)
 
-_G.TriggerBellEvent = TriggerBellEvent
-_G.SetBellActive = function(state)
-    logBellState(state)
+_G.TriggerTailBellEvent = TriggerBellEvent
+_G.SetTailBellActive = function(state)
+    logTailBellState(state)
     if state then
         reminder:Show()
         scheduleNextBell()
@@ -138,15 +138,15 @@ _G.SetBellActive = function(state)
     end
 end
 
-            logBellState(false)
+            logTailBellState(false)
             reminder:Hide()
 
-function RemoveBellSystem()
-    logBellState(false)
+function RemoveTailBellSystem()
+    logTailBellState(false)
     reminder:Hide()
-    CCT_AutoPrint("|cffffff00[System]:|r Your bell  has been automatically removed nya~")
-    CCT_RaidNotice("Bell removed (timer expired).")
+    CCT_AutoPrint("|cffffff00[System]:|r Your tail bell has been automatically removed nya~")
+    CCT_RaidNotice("Tail bell removed (timer expired).")
 end
-_G.RemoveBellSystem = RemoveBellSystem
+_G.RemoveTailBellSystem = RemoveTailBellSystem
 
-CCT_AutoPrint("Bell Collar RP Module loaded.")
+CCT_AutoPrint("Tail Bell RP Module loaded.")

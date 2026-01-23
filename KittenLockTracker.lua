@@ -36,6 +36,10 @@ local function bindUnlockedMessage(bind)
         RemoveBellSystem()
         CCT_AutoPrint("|cffffcc00[System]:|r The bell fell off as the time ran out.")
 
+    elseif bind == "tailbell" then
+        RemoveTailBellSystem()
+        CCT_AutoPrint("|cffffcc00[System]:|r The tail bell fell off as the time ran out.")
+
     else
         CCT_AutoPrint("|cffff0000[System]:|r Unknown bind '" .. bind .. "' unlocked.")
     end
@@ -84,6 +88,7 @@ local function parseBindWhisper(msg)
     if msg:find("gag to unlock") then bindType = "gag"
     elseif msg:find("earmuffs to unlock") then bindType = "earmuffs"
     elseif msg:find("blindfold to unlock") then bindType = "blindfold"
+    elseif msg:find("tail bell to unlock") then bindType = "tailbell"
     elseif msg:find("bell to unlock") then bindType = "bell"
     end
 

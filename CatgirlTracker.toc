@@ -13,6 +13,7 @@ NapTracker.lua
 Leash.lua
 Blindfold.lua
 BellCollar.lua
+BellTail.lua
 KittenEars.lua
 CatGirlControlCenter.lua
 SendData.lua

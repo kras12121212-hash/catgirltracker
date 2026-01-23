@@ -38,7 +38,7 @@ end
 local function ShowControlPanel(kitten)
     local frame = CreateFrame("Frame", "CatGirlControlPanel", UIParent, "BackdropTemplate")
 
-    frame:SetSize(260, 700) -- Increased height
+    frame:SetSize(260, 780) -- Increased height
     frame:SetPoint("CENTER")
     frame:SetMovable(true)
     frame:EnableMouse(true)
@@ -133,6 +133,13 @@ local function ShowControlPanel(kitten)
 
     -- Remove bell in X hours
     CreateDelayRow(y, "Remove in X Hours", "Your owner set your bell to unlock in %.1f hours (%d) minutes."); y = y - 45
+
+    -- Tail bell
+    CreateButton("Attach Tail Bell", y, "You hear a soft *click* as your owner attaches a tiny bell to your tail. Every step now jingles~"); y = y - 25
+    CreateButton("Remove Tail Bell", y, "With a gentle touch, your owner removes the tail bell. It's quiet again... for now."); y = y - 25
+
+    -- Remove tail bell in X hours
+    CreateDelayRow(y, "Remove Tail Bell in X Hours", "Your owner set your tail bell to unlock in %.1f hours (%d) minutes."); y = y - 45
 
     -- Close
     local closeBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
