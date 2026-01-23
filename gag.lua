@@ -139,7 +139,7 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
         local owner = getOwnerFromNote()
 
         if shortSender:lower() ~= (owner and owner:lower()) then
-            print("|cffff0000CatgirlTracker:|r Gag ignored: sender is not your owner.")
+            CCT_AutoPrint("|cffff0000CatgirlTracker:|r Gag ignored: sender is not your owner.")
             return
         end
 

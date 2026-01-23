@@ -183,7 +183,7 @@ f:SetScript("OnEvent", function(_, event, msg, sender)
     local owner = getOwnerFromNote()
 
     if shortSender:lower() ~= (owner and owner:lower()) then
-        print("|cffff0000CatgirlTracker:|r Blindfold ignored: sender is not your owner.")
+        CCT_AutoPrint("|cffff0000CatgirlTracker:|r Blindfold ignored: sender is not your owner.")
         return
     end
 

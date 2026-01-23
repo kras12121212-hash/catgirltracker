@@ -335,7 +335,7 @@ leashFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
             local owner = getOwnerFromNote()
             DebugPrint("Owner from note:", tostring(owner), "sender:", shortName, "isLeashed:", tostring(isLeashed))
             if not owner or owner:lower() ~= shortName:lower() then
-                print("|cffff0000CatgirlTracker:|r Leash rejected: " .. shortName .. " is not your registered owner.")
+                CCT_AutoPrint("|cffff0000CatgirlTracker:|r Leash rejected: " .. shortName .. " is not your registered owner.")
                 return
             end
 
