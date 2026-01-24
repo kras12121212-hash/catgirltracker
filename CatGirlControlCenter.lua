@@ -97,6 +97,16 @@ local function FormatBooleanState(value)
     return value and "On" or "Off"
 end
 
+local function FormatCoords(entry)
+    if not entry then return "Unknown" end
+    local stamp = entry.receivedAt and date("%Y-%m-%d %H:%M:%S", entry.receivedAt) or entry.timestamp
+    local mapPart = entry.mapID and ("map " .. entry.mapID) or "map ?"
+    if entry.x and entry.y then
+        return string.format("%s (%s, %.4f, %.4f)", stamp or "Unknown time", mapPart, entry.x, entry.y)
+    end
+    return string.format("%s (%s)", stamp or "Unknown time", mapPart)
+end
+
 local function FormatRemaining(seconds)
     if not seconds or seconds <= 0 then return nil end
     local total = math.floor(seconds)
@@ -153,7 +163,19 @@ local function BuildStatsLines(kittenName)
     local tailEntry = FindLastEvent(log, "TailBellState")
     table.insert(lines, "Tail Bell: " .. FormatBooleanState(tailEntry and tailEntry.state))
 
+    local trackingEntry = FindLastEvent(log, "TrackingJewel")
+    table.insert(lines, "Tracking Jewel: " .. FormatBooleanState(trackingEntry and trackingEntry.state))
+
     table.insert(lines, "Leash: " .. GetLeashState(log))
+
+    local locationLog = CatgirlLocationDB
+        and CatgirlLocationDB.LocationLog
+        and CatgirlLocationDB.LocationLog[kittenKey]
+    if locationLog and #locationLog > 0 then
+        table.insert(lines, "Last Location Sync: " .. FormatCoords(locationLog[#locationLog]))
+    else
+        table.insert(lines, "Last Location Sync: None")
+    end
 
     local timerLines = {}
     local timerKeys = {
@@ -388,6 +410,10 @@ local function ShowControlPanel(kitten)
     y = AddHeader(applyContent, y, "Bells")
     y = AddButton(applyContent, y, "Attach Bell", "You hear a soft *click* as your owner attaches a tiny bell to your collar. Every step now jingles~")
     y = AddButton(applyContent, y, "Attach Tail Bell", "You hear a soft *click* as your owner attaches a tiny bell to your tail. Every step now jingles~")
+    y = y - 6
+
+    y = AddHeader(applyContent, y, "Tracking")
+    y = AddButton(applyContent, y, "Attach Tracking Jewel", "Your owner attached a glowing jewel to your collar. Its magic will track your every move!")
 
     applyContent:SetHeight(math.max(200, -y + 10))
     tabFrames["Apply Binds"] = applyTab
@@ -424,6 +450,10 @@ local function ShowControlPanel(kitten)
     y = AddHeader(removeContent, y, "Tail Bell")
     y = AddButton(removeContent, y, "Remove Tail Bell", "With a gentle touch, your owner removes the tail bell. It's quiet again... for now.")
     y = AddDelayRow(removeContent, y, "Remove Tail Bell in X Hours", "Your owner set your tail bell to unlock in %.1f hours (%d) minutes.")
+    y = y - 6
+
+    y = AddHeader(removeContent, y, "Tracking")
+    y = AddButton(removeContent, y, "Remove Tracking Jewel", "Your owner removed the glowing jewel from your collar. Its magic will no longer track you.")
 
     removeContent:SetHeight(math.max(200, -y + 10))
     tabFrames["Remove Binds"] = removeTab
@@ -482,6 +512,19 @@ local function ShowControlPanel(kitten)
         function(value)
             if CCT_SetModuleEnabled then
                 CCT_SetModuleEnabled("PetTracker", value)
+            end
+        end
+    )
+
+    local mapBox
+    mapBox, y = AddCheckbox(
+        settingsContent,
+        y,
+        "Show tracking path on world map",
+        function() return CCT_IsModuleEnabled and CCT_IsModuleEnabled("KittenMapShow") or false end,
+        function(value)
+            if CCT_SetModuleEnabled then
+                CCT_SetModuleEnabled("KittenMapShow", value)
             end
         end
     )

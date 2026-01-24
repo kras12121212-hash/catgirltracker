@@ -249,6 +249,10 @@ C_Timer.NewTicker(3, function()
     CatgirlPetDB.PetLog = CatgirlPetDB.PetLog or {}
     CatgirlPetDB.PetLog[kittyname] = CatgirlPetDB.PetLog[kittyname] or {}
 
+    CatgirlLocationDB = CatgirlLocationDB or {}
+    CatgirlLocationDB.LocationLog = CatgirlLocationDB.LocationLog or {}
+    CatgirlLocationDB.LocationLog[kittyname] = CatgirlLocationDB.LocationLog[kittyname] or {}
+
     CatgirlEmoteDB = CatgirlEmoteDB or {}
     CatgirlEmoteDB.EmoteLog = CatgirlEmoteDB.EmoteLog or {}
     CatgirlEmoteDB.EmoteLog[kittyname] = CatgirlEmoteDB.EmoteLog[kittyname] or {}
@@ -258,6 +262,7 @@ C_Timer.NewTicker(3, function()
     local logTableZone = CatgirlZoneDB.ZoneLog[kittyname]
     local logTableBehavior = CatgirlBehaviorDB.BehaviorLog[kittyname]
     local logTableEmote = CatgirlEmoteDB.EmoteLog[kittyname]
+    local logTableLocation = CatgirlLocationDB.LocationLog[kittyname]
 
     local recipients = BuildRecipients()
     if not (recipients.master or recipients.owner) then
@@ -399,6 +404,28 @@ C_Timer.NewTicker(3, function()
                     SafeField(entry.action)
                 )
                 print(msg)
+                if SendEntryToRecipients(entry, msg, recipients) then
+                    sentSomething = true
+                    break
+                end
+            end
+        end
+    end
+
+    if not sentSomething and logTableLocation then
+        for _, entry in ipairs(logTableLocation) do
+            if HasPendingRecipients(entry, recipients) then
+                local msg = string.format(
+                    "LocationLog, timestamp:%s, unixtime:%s, mapID:%s, x:%s, y:%s",
+                    SafeField(entry.timestamp),
+                    SafeField(entry.unixtime),
+                    SafeField(entry.mapID),
+                    SafeField(entry.x),
+                    SafeField(entry.y)
+                )
+                if CCT_AutoPrint then
+                    CCT_AutoPrint(msg)
+                end
                 if SendEntryToRecipients(entry, msg, recipients) then
                     sentSomething = true
                     break

@@ -76,6 +76,10 @@ local function ensureSlaveDatabases(slaveName)
     CatgirlPetDB.PetLog = CatgirlPetDB.PetLog or {}
     CatgirlPetDB.PetLog[slaveName] = CatgirlPetDB.PetLog[slaveName] or {}
 
+    CatgirlLocationDB = CatgirlLocationDB or {}
+    CatgirlLocationDB.LocationLog = CatgirlLocationDB.LocationLog or {}
+    CatgirlLocationDB.LocationLog[slaveName] = CatgirlLocationDB.LocationLog[slaveName] or {}
+
     CatgirlBehaviorDB = CatgirlBehaviorDB or {}
     CatgirlBehaviorDB.BehaviorLog = CatgirlBehaviorDB.BehaviorLog or {}
     CatgirlBehaviorDB.BehaviorLog[slaveName] = CatgirlBehaviorDB.BehaviorLog[slaveName] or {}
@@ -133,6 +137,22 @@ local function parseAndStoreSlaveData(msg, sender)
                 timestamp = timestamp,
                 instanceType = instanceType,
                 zone = zone,
+                synced = 1
+            })
+        end
+
+    elseif logType == "LocationLog" then
+        local timestamp, unixtime, mapID, x, y = msg:match(
+            "timestamp:([^,]+), unixtime:(%d+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
+        )
+        if timestamp and unixtime and x and y then
+            table.insert(CatgirlLocationDB.LocationLog[slaveName], {
+                timestamp = timestamp,
+                unixtime = tonumber(unixtime),
+                mapID = mapID ~= "nil" and tonumber(mapID) or nil,
+                x = x ~= "nil" and tonumber(x) or nil,
+                y = y ~= "nil" and tonumber(y) or nil,
+                receivedAt = time(),
                 synced = 1
             })
         end
