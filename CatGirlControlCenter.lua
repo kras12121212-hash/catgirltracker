@@ -302,7 +302,7 @@ local function ShowControlPanel(kitten)
         return cb, y - 24
     end
 
-    local tabNames = { "Stats", "Apply Bind", "Remove Bind", "Settings" }
+    local tabNames = { "Stats", "Apply Binds", "Remove Binds", "Settings" }
     local tabButtons = {}
     local tabFrames = {}
 
