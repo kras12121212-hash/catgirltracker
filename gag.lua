@@ -1,5 +1,7 @@
 local kittyname = UnitName("player")
 gagState = "none"
+local inflatableStage = 0
+local inflatableDroolTicker = nil
 
 -- Setup DB
 CatgirlBehaviorDB = CatgirlBehaviorDB or {}
@@ -53,6 +55,31 @@ local function convertToLightGagSpeech(msg)
     end) .. " nya~"
 end
 
+local function InflatableGarble(msg, stage)
+    if stage <= 1 then
+        if math.random() < 0.3 then
+            return msg .. " mmf~"
+        end
+        return msg
+    elseif stage == 2 then
+        return convertToLightGagSpeech(msg)
+    elseif stage == 3 then
+        local words = {}
+        for word in msg:gmatch("%S+") do
+            if math.random() < 0.4 then
+                table.insert(words, "mmf~")
+            else
+                table.insert(words, word)
+            end
+        end
+        return convertToLightGagSpeech(table.concat(words, " "))
+    elseif stage == 4 then
+        return GarbleText(msg)
+    else
+        return string.rep("mmmm~ ", math.random(3, 6))
+    end
+end
+
 -- Owner lookup from note
 local function getOwnerFromNote()
     if not IsInGuild() then
@@ -90,12 +117,67 @@ end
     })
 end
 
+local function StopInflatableDrool()
+    if inflatableDroolTicker then
+        inflatableDroolTicker:Cancel()
+        inflatableDroolTicker = nil
+    end
+end
+
+local function GetInflatableDroolInterval(stage)
+    local minutes = 7 - stage
+    if minutes < 2 then
+        minutes = 2
+    end
+    return minutes * 60
+end
+
+local function StartInflatableDrool()
+    StopInflatableDrool()
+    if gagState ~= "inflatable" or inflatableStage < 1 then
+        return
+    end
+    local interval = GetInflatableDroolInterval(inflatableStage)
+    inflatableDroolTicker = C_Timer.NewTicker(interval, function()
+        if gagState ~= "inflatable" or inflatableStage < 1 then
+            StopInflatableDrool()
+            return
+        end
+        if DoEmote then
+            DoEmote("DROOL")
+        end
+    end)
+end
+
+local function ClearInflatableGag()
+    inflatableStage = 0
+    StopInflatableDrool()
+end
+
+local function SetInflatableStage(stage, shouldLog)
+    if type(stage) ~= "number" then
+        return
+    end
+    if stage < 1 then
+        stage = 1
+    elseif stage > 5 then
+        stage = 5
+    end
+    inflatableStage = stage
+    gagState = "inflatable"
+    if shouldLog then
+        logGagState("Inflatable:" .. stage)
+    end
+    StartInflatableDrool()
+end
+
 -- Restore gag state on login
 local function restoreGagState()
     local log = GetBehaviorLog()
     for i = #log, 1, -1 do
         local entry = log[i]
         if entry.event == "KittenGag" then
+            ClearInflatableGag()
             if entry.Gagstate == "Gag" then
                 gagState = "huge"
                 CCT_AutoPrint(" Re-applying huge gag from previous session")
@@ -108,6 +190,10 @@ local function restoreGagState()
             elseif entry.Gagstate == "NyaMask" then
                 gagState = "nyamask"
                 CCT_AutoPrint(" Re-applying Cute Nya Mask from previous session")
+            elseif type(entry.Gagstate) == "string" and entry.Gagstate:match("^Inflatable:") then
+                local stage = tonumber(entry.Gagstate:match("^Inflatable:(%d+)")) or 1
+                SetInflatableStage(stage, false)
+                CCT_AutoPrint(string.format(" Re-applying inflatable gag (stage %d) from previous session", inflatableStage))
             else
                 gagState = "none"
             end
@@ -115,10 +201,12 @@ local function restoreGagState()
         end
     end
     gagState = "none"
+    ClearInflatableGag()
 end
 
 function RemoveGagBySystem()
     gagState = "none"
+    ClearInflatableGag()
     logGagState("UnGag")
     CCT_AutoPrint("|cffffff00[System]:|r Your gag has been automatically removed nya~")
     CCT_RaidNotice("Gag removed (timer expired).")
@@ -145,6 +233,7 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
 
         if msg:find("secured a heavy gag") then
             gagState = "huge"
+            ClearInflatableGag()
             logGagState("Gag")
             print("|cffff66ccCatgirlTracker:|r You've been heavily gagged nya~")
             CCT_RaidNotice("Gag applied: heavy gag.")
@@ -152,6 +241,7 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
 
         elseif msg:find("small silken gag") then
             gagState = "small"
+            ClearInflatableGag()
             logGagState("LightGag")
             print("|cffcc88ffCatgirlTracker:|r A small gag muffles your words...")
             CCT_RaidNotice("Gag applied: small gag.")
@@ -159,13 +249,45 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
 
         elseif msg:find("gag and") then
             gagState = "fullblock"
+            ClearInflatableGag()
             logGagState("FullBlock")
             print("|cffff0000CatgirlTracker:|r You've been fully muzzled. No words can escape now!")
             CCT_RaidNotice("Gag applied: full mask gag.")
             SendChatMessage("She has been fully masked and gagged... not a sound can escape! Nya~", "WHISPER", nil, sender)
 
+        elseif msg:find("inflatable gag") then
+            SetInflatableStage(1, true)
+            print("|cffcc88ffCatgirlTracker:|r An inflatable gag fills your mouth... it's only a little swollen.")
+            CCT_RaidNotice("Gag applied: inflatable (stage 1).")
+            SendChatMessage("An inflatable gag is now in place. She can still mumble... for now.", "WHISPER", nil, sender)
+
+        elseif msg:find("inflate") and msg:find("gag") then
+            if gagState ~= "inflatable" then
+                SetInflatableStage(1, true)
+            else
+                local nextStage = math.min(inflatableStage + 1, 5)
+                if nextStage ~= inflatableStage then
+                    SetInflatableStage(nextStage, true)
+                end
+            end
+            print("|cffff99ffCatgirlTracker:|r The inflatable gag swells tighter in your mouth...")
+            CCT_RaidNotice(string.format("Gag inflated to stage %d.", inflatableStage))
+            SendChatMessage("Inflated the gag. She's even more muffled now.", "WHISPER", nil, sender)
+
+        elseif msg:find("deflate") and msg:find("gag") then
+            if gagState == "inflatable" then
+                local nextStage = math.max(inflatableStage - 1, 1)
+                if nextStage ~= inflatableStage then
+                    SetInflatableStage(nextStage, true)
+                end
+                print("|cff88ffccCatgirlTracker:|r The inflatable gag softens and loosens a bit...")
+                CCT_RaidNotice(string.format("Gag deflated to stage %d.", inflatableStage))
+                SendChatMessage("Deflated the gag slightly. She can mumble a bit more.", "WHISPER", nil, sender)
+            end
+
         elseif msg:find("gag has been removed") then
             gagState = "none"
+            ClearInflatableGag()
             logGagState("none")
             print("|cffaaffaaCatgirlTracker:|r You've been ungagged nya~")
             CCT_RaidNotice("Gag removed.")
@@ -173,6 +295,7 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
 
         elseif msg:find("cute~") then
             gagState = "nyamask"
+            ClearInflatableGag()
             logGagState("NyaMask")
             CCT_RaidNotice("Gag applied: cute mask.")
             print("|cffff88eeCatgirlTracker:|r You’re overcome with the urge to add ~Nya~ to everything!")
@@ -217,6 +340,9 @@ local function ApplyGagToMessage(msg, chatType)
             msg = convertToLightGagSpeech(msg)
         elseif gagState == "nyamask" then
             msg = CuteNyaGarble(msg)
+        elseif gagState == "inflatable" then
+            local stage = inflatableStage > 0 and inflatableStage or 1
+            msg = InflatableGarble(msg, stage)
         end
     end
 
@@ -253,4 +379,4 @@ if C_ChatInfo and type(C_ChatInfo.SendChatMessage) == "function" then
     end
 end
 
-CCT_AutoPrint("GagTracker with Cute Nya Mask loaded.")
+CCT_AutoPrint("GagTracker with Cute Nya Mask and inflatable gag loaded.")

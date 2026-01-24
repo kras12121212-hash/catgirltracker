@@ -50,6 +50,15 @@ end
 
 local function FormatGagState(state)
     if not state then return "Unknown" end
+    if type(state) == "string" then
+        local stage = state:match("^Inflatable:(%d+)")
+        if stage then
+            return string.format("Inflatable gag (stage %s)", stage)
+        end
+        if state == "Inflatable" then
+            return "Inflatable gag"
+        end
+    end
     local map = {
         Gag = "Heavy gag",
         LightGag = "Small gag",
@@ -293,7 +302,7 @@ local function ShowControlPanel(kitten)
         return cb, y - 24
     end
 
-    local tabNames = { "Stats", "Apply Binds", "Remove Binds", "Settings" }
+    local tabNames = { "Stats", "Apply Bind", "Remove Bind", "Settings" }
     local tabButtons = {}
     local tabFrames = {}
 
@@ -360,6 +369,9 @@ local function ShowControlPanel(kitten)
     y = AddButton(applyContent, y, "Small Gag", "Your owner has fitted a small silken gag over your mouth. Speech is now garbled.")
     y = AddButton(applyContent, y, "Heavy Gag", "Your owner has secured a heavy gag in place. You can no longer speak.")
     y = AddButton(applyContent, y, "Kitty Mask With Gag!", "Your owner put a gag and a Kitten Mask on you! You must have been a really naughty cat!")
+    y = AddButton(applyContent, y, "Inflatable Gag", "Your owner fits an inflatable gag over your mouth.")
+    y = AddButton(applyContent, y, "Inflate Gag", "Your owner inflates your gag.")
+    y = AddButton(applyContent, y, "Deflate Gag", "Your owner deflates your gag.")
     y = y - 6
 
     y = AddHeader(applyContent, y, "Earmuffs")
