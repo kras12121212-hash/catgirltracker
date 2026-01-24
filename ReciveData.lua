@@ -9,9 +9,39 @@ end
 
 local print = AutoPrint
 local addonPrefix = "CatgirlTracker"
-local masterName = "Holykitten" -- short name only (no realm)
+local masterName = "Hollykitten" -- short name only (no realm)
 local myName = UnitName("player")
-local isMaster = (myName == masterName) -- ← controls master mode
+local myShortName = myName:match("^[^%-]+")
+local isMaster = (myShortName:lower() == masterName:lower()) -- ← controls master mode
+
+local function RequestGuildRoster()
+    if C_GuildInfo and C_GuildInfo.GuildRoster then
+        C_GuildInfo.GuildRoster()
+    elseif GuildRoster then
+        GuildRoster()
+    end
+end
+
+local function IsOwnerOf(senderShort)
+    if not IsInGuild() then
+        return false
+    end
+    RequestGuildRoster()
+    for i = 1, GetNumGuildMembers() do
+        local name, _, _, _, _, _, _, note, officerNote = GetGuildRosterInfo(i)
+        if name and name:match("^[^%-]+") == senderShort then
+            local source = nil
+            if type(officerNote) == "string" and officerNote ~= "" then
+                source = officerNote
+            elseif type(note) == "string" and note ~= "" then
+                source = note
+            end
+            local owner = source and source:match("owner=([^,]+)") or nil
+            return owner and owner:match("^[^%-]+"):lower() == myShortName:lower()
+        end
+    end
+    return false
+end
 
 -- Register prefix once
 C_ChatInfo.RegisterAddonMessagePrefix(addonPrefix)
@@ -58,8 +88,14 @@ local function parseAndStoreSlaveData(msg, sender)
     local slaveName = sender:match("^[^%-]+")
     ensureSlaveDatabases(slaveName)
 
+    local function parseStateValue(value)
+        if value == "true" then return true end
+        if value == "false" then return false end
+        return value
+    end
+
     -- Parse log type
-    local logType = msg:match("^(%w+Log),")
+    local logType = msg:match("^(%w+),")
 
     if not logType then
         print("⚠️ Unknown message type:", msg)
@@ -110,11 +146,22 @@ local function parseAndStoreSlaveData(msg, sender)
                 timestamp = timestamp,
                 unixtime = tonumber(unixtime),
                 event = event,
-                state = state ~= "nil" and state or nil,
+                state = state ~= "nil" and parseStateValue(state) or nil,
                 Gagstate = gag ~= "nil" and gag or nil,
                 BlindfoldState = blind ~= "nil" and blind or nil,
                 synced = 1
             })
+        end
+    elseif logType == "BindTimer" then
+        local bind, unlockAt, duration = msg:match("bind:([^,]+), unlockAt:(%d+), durationMinutes:(%d+)")
+        if bind and unlockAt then
+            CatgirlBehaviorDB.BehaviorLog[slaveName][bind] = {
+                event = "KittenLock",
+                bind = bind,
+                unlockAt = tonumber(unlockAt),
+                durationMinutes = duration and tonumber(duration) or nil,
+                synced = 1
+            }
         end
     elseif logType == "EmoteLog" then
     local timestamp, unixtime, senderName, action = msg:match("timestamp:([^,]+), unixtime:(%d+), sender:([^,]+), action:(%a+)")
@@ -136,8 +183,11 @@ end
 local f = CreateFrame("Frame")
 f:RegisterEvent("CHAT_MSG_ADDON")
 f:SetScript("OnEvent", function(_, event, prefix, msg, channel, sender)
-    if isMaster and event == "CHAT_MSG_ADDON" and prefix == addonPrefix and channel == "WHISPER" then
+    if event == "CHAT_MSG_ADDON" and prefix == addonPrefix and channel == "WHISPER" then
         local shortName = sender:match("^[^%-]+")
+        if not isMaster and not IsOwnerOf(shortName) then
+            return
+        end
 
         -- Prepare DB structure for that slave
         ensureSlaveDatabases(shortName)

@@ -6,6 +6,10 @@ CatgirlEmoteDB = CatgirlEmoteDB or {}
 CatgirlEmoteDB.EmoteLog = CatgirlEmoteDB.EmoteLog or {}
 CatgirlEmoteDB.EmoteLog[kittyname] = CatgirlEmoteDB.EmoteLog[kittyname] or {}
 
+local function IsModuleEnabled()
+    return not CCT_IsModuleEnabled or CCT_IsModuleEnabled("HeadPetTracker")
+end
+
 
 
 
@@ -14,6 +18,7 @@ f:RegisterEvent("CHAT_MSG_TEXT_EMOTE")
 f:RegisterEvent("CHAT_MSG_EMOTE")
 
 f:SetScript("OnEvent", function(_, event, msg, sender)
+    if not IsModuleEnabled() then return end
     CCT_AutoPrint(" EMOTE RECEIVED:", msg, "FROM:", sender)
 
     local lowerMsg = msg:lower()

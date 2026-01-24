@@ -38,12 +38,6 @@ local function TriggerBellEvent()
 
     PlaySoundFile("Interface\\AddOns\\CatgirlTracker\\Sounds\\Bell.ogg", "Master")
     CCT_AutoPrint("|cffffff00CatgirlTracker:|r The bell on your collar jingles softly nya...")
-
-    table.insert(GetBehaviorLog(), {
-        timestamp = date("%Y-%m-%d %H:%M"),
-        unixtime = time(),
-        event = "BellJingle",
-    })
 end
 
 -- bell RP Timer

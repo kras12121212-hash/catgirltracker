@@ -38,11 +38,6 @@ local function TriggerBellEvent()
     if IsPlayerMoving and not IsPlayerMoving() then return end
 
     PlaySoundFile("Interface\\AddOns\\CatgirlTracker\\Sounds\\sbell4seconds.ogg", "Master")
-    table.insert(GetBehaviorLog(), {
-        timestamp = date("%Y-%m-%d %H:%M"),
-        unixtime = time(),
-        event = "TailBellJingle",
-    })
 
 end
 

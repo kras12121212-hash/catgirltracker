@@ -4,6 +4,10 @@ CatgirlPetDB = CatgirlPetDB or {}
 CatgirlPetDB.PetLog = CatgirlPetDB.PetLog or {}
 CatgirlPetDB.PetLog[kittyname] = CatgirlPetDB.PetLog[kittyname] or {}
 
+local function IsModuleEnabled()
+    return not CCT_IsModuleEnabled or CCT_IsModuleEnabled("PetTracker")
+end
+
 local macroName = "CatNya"
 local catSummoned = false
 local macroReady = false
@@ -123,6 +127,21 @@ local function CreateCatButton()
     UpdateButtonMacro()
 end
 
+local function ApplyPetTrackerEnabled(enabled)
+    if enabled then
+        if not catButton then
+            CreateCatButton()
+        end
+        catButton:Show()
+        UpdateButtonText()
+        UpdateButtonMacro()
+    else
+        if catButton then
+            catButton:Hide()
+        end
+    end
+end
+
 local function SendGuildMessage(msg)
     if IsInGuild() then
         SendChatMessage(msg, "GUILD")
@@ -130,6 +149,7 @@ local function SendGuildMessage(msg)
 end
 
 local function RunFiveMinuteCheck()
+    if not IsModuleEnabled() then return end
     if checkDone then return end
     if UnitIsDeadOrGhost("player") then
         checkPending = true
@@ -158,12 +178,16 @@ f:RegisterEvent("UPDATE_MACROS")
 f:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_LOGIN" then
         catSummoned = false
-        CreateCatButton()
-        UpdateButtonText()
-        DebugPrint("PLAYER_LOGIN", "macroId:", tostring(GetMacroIndexByName(macroName)))
-        C_Timer.After(300, RunFiveMinuteCheck)
+        ApplyPetTrackerEnabled(IsModuleEnabled())
+        if IsModuleEnabled() then
+            UpdateButtonText()
+            DebugPrint("PLAYER_LOGIN", "macroId:", tostring(GetMacroIndexByName(macroName)))
+            C_Timer.After(300, RunFiveMinuteCheck)
+        end
         return
     end
+
+    if not IsModuleEnabled() then return end
 
     if event == "PLAYER_DEAD" then
         catSummoned = false
@@ -190,5 +214,11 @@ f:SetScript("OnEvent", function(_, event)
         return
     end
 end)
+
+if CCT_RegisterModuleWatcher then
+    CCT_RegisterModuleWatcher("PetTracker", function(enabled)
+        ApplyPetTrackerEnabled(enabled)
+    end)
+end
 
 CCT_AutoPrint("CatgirlPetTracker loaded (CatNya button mode).")

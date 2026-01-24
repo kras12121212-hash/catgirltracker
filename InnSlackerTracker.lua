@@ -8,6 +8,10 @@ CatgirlBehaviorDB = CatgirlBehaviorDB or {}
 CatgirlBehaviorDB.BehaviorLog = CatgirlBehaviorDB.BehaviorLog or {}
 CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyname] or {}
 
+local function IsModuleEnabled()
+    return not CCT_IsModuleEnabled or CCT_IsModuleEnabled("InnSlackerTracker")
+end
+
 -- Cities to exclude
 local bigCities = {
     ["Orgrimmar"] = true,
@@ -42,6 +46,7 @@ end
 local emoteFrame = CreateFrame("Frame")
 emoteFrame:RegisterEvent("CHAT_MSG_TEXT_EMOTE")
 emoteFrame:SetScript("OnEvent", function(_, _, msg, sender)
+    if not IsModuleEnabled() then return end
     local lowerMsg = msg:lower()
     local playerName = UnitName("player")
     if sender:find(playerName) and lowerMsg:find("fall asleep") then
@@ -52,6 +57,7 @@ end)
 
 -- Main resting logic
 C_Timer.NewTicker(10, function()
+    if not IsModuleEnabled() then return end
     local zone = GetRealZoneText() or GetZoneText() or "Unknown"
     local subzone = GetSubZoneText() or ""
 
