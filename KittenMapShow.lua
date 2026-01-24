@@ -12,6 +12,8 @@ local lastDebug = 0
 local MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 local KITTEN_CACHE_SECONDS = 30
 local DEBUG_THROTTLE_SECONDS = 5
+local MARKER_TEXTURE = "Interface\\AddOns\\CatgirlTracker\\Textures\\catgirltga32.tga"
+local MARKER_SIZE = 16
 
 local function DebugPrint(...)
     if CCT_AutoPrint then
@@ -101,89 +103,117 @@ local function EnsureOverlay()
 
     overlay = CreateFrame("Frame", nil, canvas)
     overlay:SetAllPoints(canvas)
-    overlay.marker = overlay:CreateTexture(nil, "ARTWORK")
-    overlay.marker:SetSize(16, 16)
-    overlay.marker:SetTexture("Interface\\AddOns\\CatgirlTracker\\Textures\\catgirltga32.tga")
-    overlay.marker:Hide()
-    overlay.marker.timestamp = nil
-
-    overlay.hover = CreateFrame("Frame", nil, overlay)
-    overlay.hover:EnableMouse(true)
-    overlay.hover:SetFrameLevel(overlay:GetFrameLevel() + 1)
-    overlay.hover:SetScript("OnEnter", function(self)
-        if not GameTooltip or not self.timestamp then return end
-        GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
-        GameTooltip:SetText(self.timestamp)
-        GameTooltip:Show()
-    end)
-    overlay.hover:SetScript("OnLeave", function()
-        if GameTooltip then
-            GameTooltip:Hide()
-        end
-    end)
-    overlay.hover:Hide()
+    overlay.markers = {}
+    overlay.markerHovers = {}
     overlay:SetFrameLevel(canvas:GetFrameLevel() + 5)
     return overlay
 end
 
-local function BuildMarker(mapID, kittenKey, latestEntry)
+local function HideUnused(list, startIndex)
+    for i = startIndex, #list do
+        list[i]:Hide()
+    end
+end
+
+local function AcquireMarker(index)
+    local marker = overlay.markers[index]
+    if not marker then
+        marker = overlay:CreateTexture(nil, "ARTWORK")
+        marker:SetSize(MARKER_SIZE, MARKER_SIZE)
+        marker:SetTexture(MARKER_TEXTURE)
+        overlay.markers[index] = marker
+    end
+    marker:Show()
+    return marker
+end
+
+local function AcquireMarkerHover(index)
+    local hover = overlay.markerHovers[index]
+    if not hover then
+        hover = CreateFrame("Frame", nil, overlay)
+        hover:EnableMouse(true)
+        hover:SetFrameLevel(overlay:GetFrameLevel() + 2)
+        hover:SetScript("OnEnter", function(self)
+            if not GameTooltip or not self.timestamp then return end
+            GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+            GameTooltip:SetText(self.timestamp)
+            GameTooltip:Show()
+        end)
+        hover:SetScript("OnLeave", function()
+            if GameTooltip then
+                GameTooltip:Hide()
+            end
+        end)
+        overlay.markerHovers[index] = hover
+    end
+    hover:Show()
+    return hover
+end
+
+local function BuildMarkers(mapID, kittenKey, log)
     if not mapID then return end
     local canvas = EnsureOverlay()
     if not canvas then return end
 
-    if not latestEntry then
-        overlay.marker:Hide()
-        overlay.hover:Hide()
-        DebugPrint("No location log for:", kittenKey)
-        return
-    end
-
-    if latestEntry.mapID ~= mapID then
-        overlay.marker:Hide()
-        overlay.hover:Hide()
+    if not log or #log == 0 then
+        HideUnused(overlay.markers, 1)
+        HideUnused(overlay.markerHovers, 1)
         overlay:Hide()
-        DebugPrint("Latest entry is on another map:", tostring(latestEntry.mapID))
+        DebugPrint("No location log for:", kittenKey)
         return
     end
 
     local width = overlay:GetWidth()
     local height = overlay:GetHeight()
     if width <= 0 or height <= 0 then
-        overlay.marker:Hide()
-        overlay.hover:Hide()
+        HideUnused(overlay.markers, 1)
+        HideUnused(overlay.markerHovers, 1)
         return
     end
 
     local cutoff = time() - MAX_AGE_SECONDS
-    local entryTime = latestEntry.unixtime or latestEntry.receivedAt
-    if not entryTime or entryTime < cutoff or not latestEntry.x or not latestEntry.y then
-        overlay.marker:Hide()
-        overlay.hover:Hide()
-        overlay:Hide()
-        DebugPrint("Latest entry is out of range or missing coords.")
-        return
+    local markerIndex = 0
+
+    for i = 1, #log do
+        local entry = log[i]
+        local entryTime = entry and (entry.unixtime or entry.receivedAt) or nil
+        if entry
+            and entry.mapID == mapID
+            and entry.x and entry.y
+            and entryTime
+            and entryTime >= cutoff then
+            markerIndex = markerIndex + 1
+            local marker = AcquireMarker(markerIndex)
+            local x = entry.x * width
+            local y = entry.y * height
+            marker:ClearAllPoints()
+            marker:SetPoint("CENTER", overlay, "TOPLEFT", x, -y)
+
+            local hover = AcquireMarkerHover(markerIndex)
+            hover:ClearAllPoints()
+            hover:SetPoint("CENTER", marker, "CENTER")
+            hover:SetSize(MARKER_SIZE + 4, MARKER_SIZE + 4)
+            hover.timestamp = entry.timestamp
+                or (entry.unixtime and date("%Y-%m-%d %H:%M:%S", entry.unixtime))
+                or "Unknown time"
+        end
     end
 
-    local x = latestEntry.x * width
-    local y = latestEntry.y * height
-    overlay:Show()
-    overlay.marker:ClearAllPoints()
-    overlay.marker:SetPoint("CENTER", overlay, "TOPLEFT", x, -y)
-    overlay.marker:Show()
-
-    overlay.hover:ClearAllPoints()
-    overlay.hover:SetPoint("CENTER", overlay.marker, "CENTER")
-    overlay.hover:SetSize(20, 20)
-    overlay.hover.timestamp = latestEntry.timestamp
-        or (latestEntry.unixtime and date("%Y-%m-%d %H:%M:%S", latestEntry.unixtime))
-        or "Unknown time"
-    overlay.hover:Show()
-    DebugPrint("Rendered marker:", "mapID=" .. tostring(mapID), "x=" .. tostring(latestEntry.x), "y=" .. tostring(latestEntry.y))
+    HideUnused(overlay.markers, markerIndex + 1)
+    HideUnused(overlay.markerHovers, markerIndex + 1)
+    if markerIndex > 0 then
+        overlay:Show()
+    else
+        overlay:Hide()
+        DebugPrint("No matching points for map:", tostring(mapID))
+    end
 end
 
 local function HideOverlay()
     if overlay then
         overlay:Hide()
+        HideUnused(overlay.markers, 1)
+        HideUnused(overlay.markerHovers, 1)
     end
     if GameTooltip then
         GameTooltip:Hide()
@@ -233,7 +263,7 @@ local function RefreshIfNeeded(force)
             DebugPrint("Refresh:", "mapID=" .. tostring(mapID), "kitten=" .. tostring(kittenKey), "stamp=" .. tostring(stamp))
             lastDebug = now
         end
-        BuildMarker(mapID, kittenKey, latestEntry)
+        BuildMarkers(mapID, kittenKey, log)
     end
 end
 
