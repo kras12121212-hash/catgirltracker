@@ -103,7 +103,7 @@ local function EnsureOverlay()
     overlay:SetAllPoints(canvas)
     overlay.marker = overlay:CreateTexture(nil, "ARTWORK")
     overlay.marker:SetSize(16, 16)
-    overlay.marker:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
+    overlay.marker:SetTexture("Interface\\AddOns\\CatgirlTracker\\Textures\\catgirltga32.tga")
     overlay.marker:Hide()
     overlay.marker.timestamp = nil
 
