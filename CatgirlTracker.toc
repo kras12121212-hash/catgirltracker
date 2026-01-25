@@ -1,4 +1,4 @@
-## Interface: 20505, 50502, 110207, 120000
+﻿## Interface: 20505, 50502, 110207, 120000
 ## Title: CatgirlTracker
 ## Notes: Tracks guild events, zone changes, and summoned cats
 ## SavedVariables: CatgirlGuildDB, CatgirlZoneDB, CatgirlPetDB, CatgirlEmoteDB, CatgirlBehaviorDB, CatgirlLocationDB, CatgirlSettingsDB
@@ -22,6 +22,8 @@ CatGirlControlCenter.lua
 SendData.lua
 ReciveData.lua
 KittenMapShow.lua
+PawMittens.lua
 KittenLockTracker.lua
 CreateLocalMacro.lua
 PetTracker.lua
+

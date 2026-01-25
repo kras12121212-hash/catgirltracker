@@ -1,4 +1,4 @@
-local addonPrefix = "CatgirlTracker"
+﻿local addonPrefix = "CatgirlTracker"
 local kittyname = UnitName("player")
 local masterName = "Hollykitten"
 local master = nil
@@ -374,7 +374,7 @@ C_Timer.NewTicker(3, function()
     end
 
     if not sentSomething and logTableBehavior then
-        local bindKeys = { "gag", "earmuffs", "blindfold", "bell", "tailbell" }
+        local bindKeys = { "gag", "earmuffs", "blindfold", "mittens", "bell", "tailbell" }
         for _, bind in ipairs(bindKeys) do
             local entry = logTableBehavior[bind]
             if entry and entry.unlockAt and HasPendingRecipients(entry, recipients) then
@@ -436,3 +436,4 @@ C_Timer.NewTicker(3, function()
 end)
 
 print("Catgirl Send Data loaded.")
+

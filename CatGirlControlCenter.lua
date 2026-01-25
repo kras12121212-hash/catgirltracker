@@ -1,4 +1,4 @@
-local addonName = "CatGirlControlCenter"
+﻿local addonName = "CatGirlControlCenter"
 local f = CreateFrame("Frame")
 local kittyname = UnitName("player"):match("^[^%-]+") -- short name only
 local controlOpenButton = nil
@@ -95,6 +95,16 @@ local function FormatEarmuffState(state)
     local map = {
         KittenEarmuffs = "Kitten earmuffs",
         HeavyEarmuffs = "Heavy earmuffs",
+        none = "None",
+    }
+    return map[state] or tostring(state)
+end
+
+local function FormatMittensState(state)
+    if not state then return "Unknown" end
+    local map = {
+        locked = "Locked",
+        removed = "None",
         none = "None",
     }
     return map[state] or tostring(state)
@@ -211,6 +221,9 @@ local function BuildStatsLines(kittenName)
     local earEntry = FindLastEvent(log, "KittenEarmuffs")
     table.insert(lines, "Earmuffs: " .. FormatEarmuffState(earEntry and earEntry.state))
 
+    local mittensEntry = FindLastEvent(log, "PawMittens")
+    table.insert(lines, "Paw Mittens: " .. FormatMittensState(mittensEntry and mittensEntry.state))
+
     local bellEntry = FindLastEvent(log, "BellState")
     table.insert(lines, "Bell: " .. FormatBooleanState(bellEntry and bellEntry.state))
 
@@ -239,6 +252,7 @@ local function BuildStatsLines(kittenName)
         { key = "gag", label = "Gag" },
         { key = "earmuffs", label = "Earmuffs" },
         { key = "blindfold", label = "Blindfold" },
+        { key = "mittens", label = "Paw Mittens" },
         { key = "bell", label = "Bell" },
         { key = "tailbell", label = "Tail Bell" },
     }
@@ -639,6 +653,18 @@ local function ShowControlPanel(kitten)
         y = AddDelayRow(parent, y, "Remove Bell in X Hours", "Your owner set your bell to unlock in %.1f hours (%d) minutes.")
         y = AddButton(parent, y, "Remove Tail Bell", "With a gentle touch, your owner removes the tail bell. It's quiet again... for now.")
         y = AddDelayRow(parent, y, "Remove Tail Bell in X Hours", "Your owner set your tail bell to unlock in %.1f hours (%d) minutes.")
+        return y
+    end)
+
+    -- Collapsible: Mittens (hidden by default)
+    local mittensBlock = CreateCollapsibleBlock("Mittens")
+    BuildCollapsibleContent(mittensBlock, function(parent, y)
+        y = AddHeader(parent, y, "Apply")
+        y = AddButton(parent, y, "Lockable Paw Mittens", "Your owner has locked tight paw mittens onto your paws. They are reinforced so you cannot use your paws properly or extend your claws at all.")
+        y = y - 4
+        y = AddHeader(parent, y, "Remove")
+        y = AddButton(parent, y, "Remove Paw Mittens", "Your owner removed your paw mittens. Your paws are free again.")
+        y = AddDelayRow(parent, y, "Remove Paw Mittens in X Hours", "Your owner set your paw mittens to unlock in %.1f hours (%d) minutes.")
         return y
     end)
 
@@ -1095,3 +1121,5 @@ SlashCmdList["CGCC"] = function()
 end
 
 CCT_AutoPrint("CatGirlControlCenter loaded.")
+
+

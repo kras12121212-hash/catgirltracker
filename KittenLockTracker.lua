@@ -1,4 +1,4 @@
-local kittyname = UnitName("player")
+﻿local kittyname = UnitName("player")
 CatgirlBehaviorDB = CatgirlBehaviorDB or {}
 CatgirlBehaviorDB.BehaviorLog = CatgirlBehaviorDB.BehaviorLog or {}
 CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyname] or {}
@@ -39,6 +39,10 @@ local function bindUnlockedMessage(bind)
     elseif bind == "tailbell" then
         RemoveTailBellSystem()
         CCT_AutoPrint("|cffffcc00[System]:|r The tail bell fell off as the time ran out.")
+
+    elseif bind == "mittens" then
+        RemovePawMittensBySystem()
+        CCT_AutoPrint("|cffffff00[System]:|r The paw mittens lock timer ended.")
 
     else
         CCT_AutoPrint("|cffff0000[System]:|r Unknown bind '" .. bind .. "' unlocked.")
@@ -88,6 +92,7 @@ local function parseBindWhisper(msg)
     if msg:find("gag to unlock") then bindType = "gag"
     elseif msg:find("earmuffs to unlock") then bindType = "earmuffs"
     elseif msg:find("blindfold to unlock") then bindType = "blindfold"
+    elseif msg:find("paw mittens to unlock") then bindType = "mittens"
     elseif msg:find("tail bell to unlock") then bindType = "tailbell"
     elseif msg:find("bell to unlock") then bindType = "bell"
     end
@@ -104,3 +109,4 @@ whisperFrame:RegisterEvent("CHAT_MSG_WHISPER")
 whisperFrame:SetScript("OnEvent", function(_, _, msg)
     parseBindWhisper(msg)
 end)
+
