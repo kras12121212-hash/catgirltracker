@@ -1,6 +1,7 @@
 local addonName = "CatGirlControlCenter"
 local f = CreateFrame("Frame")
 local kittyname = UnitName("player"):match("^[^%-]+") -- short name only
+local controlOpenButton = nil
 
 SLASH_CGCC1 = "/cgcc"
 
@@ -37,6 +38,13 @@ end
 local function ShortName(name)
     if not name then return name end
     return name:match("^[^%-]+")
+end
+
+local function FormatKittenLabel(kitten)
+    if kitten and kitten ~= "" then
+        return "Kitten: " .. kitten
+    end
+    return "Kitten: None assigned"
 end
 
 local function FindLastEvent(log, eventName)
@@ -179,6 +187,9 @@ local function GetLeashState(log)
 end
 
 local function BuildStatsLines(kittenName)
+    if not kittenName or kittenName == "" then
+        return { "No data synced for this kitten yet." }
+    end
     local kittenKey = ShortName(kittenName)
     local log = CatgirlBehaviorDB
         and CatgirlBehaviorDB.BehaviorLog
@@ -258,10 +269,13 @@ end
 
 -- Create control panel UI
 local function ShowControlPanel(kitten)
+    local hasKitten = kitten and kitten ~= ""
+    local kittenName = hasKitten and kitten or nil
     local frame = CatGirlControlPanel
     if frame then
-        frame.kitten = kitten
-        frame.kittenName:SetText("Kitten: " .. kitten)
+        frame.kitten = kittenName
+        frame.hasKitten = hasKitten
+        frame.kittenName:SetText(FormatKittenLabel(frame.kitten))
         frame:Show()
         if frame.selectedTab == "Stats" and frame.UpdateStats then
             frame:UpdateStats()
@@ -295,9 +309,10 @@ local function ShowControlPanel(kitten)
 
     frame.kittenName = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     frame.kittenName:SetPoint("TOP", 0, -30)
-    frame.kittenName:SetText("Kitten: " .. kitten)
+    frame.kittenName:SetText(FormatKittenLabel(kittenName))
 
-    frame.kitten = kitten
+    frame.kitten = kittenName
+    frame.hasKitten = hasKitten
 
     local function CreateScrollArea(parent)
         local scroll = CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
@@ -403,18 +418,31 @@ local function ShowControlPanel(kitten)
     refreshBtn:SetPoint("TOPLEFT", 0, 0)
     refreshBtn:SetText("Refresh")
 
+    local warningText = statsContent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    warningText:SetPoint("TOPLEFT", 0, -26)
+    warningText:SetJustifyH("LEFT")
+    warningText:SetWidth(280)
+    warningText:SetTextColor(1, 0.1, 0.1)
+    warningText:SetText("You dont own a kitten yet most Functions not avilable!!!")
+    warningText:Hide()
+
     local statsText = statsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    statsText:SetPoint("TOPLEFT", 0, -26)
+    statsText:SetPoint("TOPLEFT", 0, -70)
     statsText:SetJustifyH("LEFT")
     statsText:SetWidth(280)
     statsText:SetText("")
 
     frame.UpdateStats = function(self)
+        local noKitten = not self.kitten
+        warningText:SetShown(noKitten)
         local lines = BuildStatsLines(self.kitten)
         statsText:SetText(table.concat(lines, "\n"))
         local lineHeight = 14
         local height = (#lines * lineHeight) + 40
-        statsContent:SetHeight(math.max(80, height))
+        if noKitten then
+            height = height + 44
+        end
+        statsContent:SetHeight(math.max(120, height))
     end
 
     refreshBtn:SetScript("OnClick", function()
@@ -605,6 +633,64 @@ local function ShowControlPanel(kitten)
     ShowTab("Stats")
 end
 
+local function GetOpenButtonPosition()
+    CatgirlSettingsDB = CatgirlSettingsDB or {}
+    CatgirlSettingsDB.cgccOpenButton = CatgirlSettingsDB.cgccOpenButton or {}
+    CatgirlSettingsDB.cgccOpenButton[kittyname] = CatgirlSettingsDB.cgccOpenButton[kittyname] or {}
+    return CatgirlSettingsDB.cgccOpenButton[kittyname]
+end
+
+local function ApplySavedOpenButtonPosition(button)
+    if not button then return end
+    local db = GetOpenButtonPosition()
+    if not db.point then
+        button:SetPoint("TOP", 0, -210)
+        return
+    end
+    button:ClearAllPoints()
+    button:SetPoint(db.point, UIParent, db.relativePoint or db.point, db.x or 0, db.y or -210)
+end
+
+local function SaveOpenButtonPosition(button)
+    if not button then return end
+    local point, _, relativePoint, xOfs, yOfs = button:GetPoint(1)
+    if not point then return end
+    local db = GetOpenButtonPosition()
+    db.point = point
+    db.relativePoint = relativePoint
+    db.x = xOfs
+    db.y = yOfs
+end
+
+local function CreateOpenButton()
+    if controlOpenButton then return end
+    controlOpenButton = CreateFrame("Button", "CatGirlControlCenterOpenButton", UIParent, "UIPanelButtonTemplate")
+    controlOpenButton:SetSize(80, 24)
+    ApplySavedOpenButtonPosition(controlOpenButton)
+    controlOpenButton:SetText("cgcc")
+    controlOpenButton:RegisterForClicks("LeftButtonUp")
+    controlOpenButton:SetMovable(true)
+    controlOpenButton:EnableMouse(true)
+    controlOpenButton:RegisterForDrag("LeftButton")
+    controlOpenButton:SetScript("OnDragStart", function(self)
+        self:StartMoving()
+    end)
+    controlOpenButton:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        SaveOpenButtonPosition(self)
+    end)
+    controlOpenButton:SetScript("OnClick", function()
+        SlashCmdList["CGCC"]()
+    end)
+end
+
+f:RegisterEvent("PLAYER_LOGIN")
+f:SetScript("OnEvent", function(_, event)
+    if event == "PLAYER_LOGIN" then
+        CreateOpenButton()
+    end
+end)
+
 -- Slash command handler
 SlashCmdList["CGCC"] = function()
     if not IsInGuild() then
@@ -619,6 +705,7 @@ SlashCmdList["CGCC"] = function()
             ShowControlPanel(kitten)
         else
             print("|cffff5555[CatGirlControlCenter]|r You don't own a kitten yet!")
+            ShowControlPanel(nil)
         end
     end)
 end

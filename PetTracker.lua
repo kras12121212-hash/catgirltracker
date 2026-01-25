@@ -4,6 +4,9 @@ CatgirlPetDB = CatgirlPetDB or {}
 CatgirlPetDB.PetLog = CatgirlPetDB.PetLog or {}
 CatgirlPetDB.PetLog[kittyname] = CatgirlPetDB.PetLog[kittyname] or {}
 
+CatgirlSettingsDB = CatgirlSettingsDB or {}
+CatgirlSettingsDB.petTrackerButton = CatgirlSettingsDB.petTrackerButton or {}
+
 local function IsModuleEnabled()
     return not CCT_IsModuleEnabled or CCT_IsModuleEnabled("PetTracker")
 end
@@ -15,6 +18,13 @@ local pendingMacroUpdate = false
 local checkDone = false
 local checkPending = false
 local catButton = nil
+
+local function GetButtonPosition()
+    CatgirlSettingsDB = CatgirlSettingsDB or {}
+    CatgirlSettingsDB.petTrackerButton = CatgirlSettingsDB.petTrackerButton or {}
+    CatgirlSettingsDB.petTrackerButton[kittyname] = CatgirlSettingsDB.petTrackerButton[kittyname] or {}
+    return CatgirlSettingsDB.petTrackerButton[kittyname]
+end
 
 local function IsDebugEnabled()
     return CCT_IsDebugEnabled and CCT_IsDebugEnabled() or false
@@ -94,11 +104,43 @@ local function UpdateButtonMacro()
     end
 end
 
+local function ApplySavedButtonPosition(frame)
+    if not frame then return end
+
+    local db = GetButtonPosition()
+    if not db.point then
+        frame:SetPoint("TOP", 0, -180)
+        return
+    end
+
+    if InCombatLockdown and InCombatLockdown() then
+        frame:SetPoint("TOP", 0, -180)
+        return
+    end
+
+    frame:ClearAllPoints()
+    frame:SetPoint(db.point, UIParent, db.relativePoint or db.point, db.x or 0, db.y or -180)
+end
+
+local function SaveButtonPosition(frame)
+    if not frame then return end
+    if InCombatLockdown and InCombatLockdown() then return end
+
+    local point, _, relativePoint, xOfs, yOfs = frame:GetPoint(1)
+    if not point then return end
+
+    local db = GetButtonPosition()
+    db.point = point
+    db.relativePoint = relativePoint
+    db.x = xOfs
+    db.y = yOfs
+end
+
 local function CreateCatButton()
     if catButton then return end
     catButton = CreateFrame("Button", "CatgirlSummonCatButton", UIParent, "UIPanelButtonTemplate,SecureActionButtonTemplate")
     catButton:SetSize(260, 24)
-    catButton:SetPoint("TOP", 0, -180)
+    ApplySavedButtonPosition(catButton)
     catButton:RegisterForClicks("LeftButtonDown")
     catButton:SetAlpha(1.0)
     catButton:SetMovable(true)
@@ -109,6 +151,7 @@ local function CreateCatButton()
     end)
     catButton:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
+        SaveButtonPosition(self)
     end)
 
     catButton:SetScript("PostClick", function()
