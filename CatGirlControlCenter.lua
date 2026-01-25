@@ -558,7 +558,12 @@ local function ShowControlPanel(kitten)
         settingsContent,
         y,
         "HeadPetTracker",
-        function() return CCT_IsModuleEnabled and CCT_IsModuleEnabled("HeadPetTracker") or true end,
+        function()
+            if CCT_IsModuleEnabled then
+                return CCT_IsModuleEnabled("HeadPetTracker")
+            end
+            return true
+        end,
         function(value)
             if CCT_SetModuleEnabled then
                 CCT_SetModuleEnabled("HeadPetTracker", value)
@@ -570,7 +575,12 @@ local function ShowControlPanel(kitten)
         settingsContent,
         y,
         "InnSlackerTracker",
-        function() return CCT_IsModuleEnabled and CCT_IsModuleEnabled("InnSlackerTracker") or true end,
+        function()
+            if CCT_IsModuleEnabled then
+                return CCT_IsModuleEnabled("InnSlackerTracker")
+            end
+            return true
+        end,
         function(value)
             if CCT_SetModuleEnabled then
                 CCT_SetModuleEnabled("InnSlackerTracker", value)
@@ -582,7 +592,12 @@ local function ShowControlPanel(kitten)
         settingsContent,
         y,
         "PetTracker (Summon button)",
-        function() return CCT_IsModuleEnabled and CCT_IsModuleEnabled("PetTracker") or true end,
+        function()
+            if CCT_IsModuleEnabled then
+                return CCT_IsModuleEnabled("PetTracker")
+            end
+            return true
+        end,
         function(value)
             if CCT_SetModuleEnabled then
                 CCT_SetModuleEnabled("PetTracker", value)
@@ -595,7 +610,12 @@ local function ShowControlPanel(kitten)
         settingsContent,
         y,
         "Show tracking path on world map",
-        function() return CCT_IsModuleEnabled and CCT_IsModuleEnabled("KittenMapShow") or false end,
+        function()
+            if CCT_IsModuleEnabled then
+                return CCT_IsModuleEnabled("KittenMapShow")
+            end
+            return false
+        end,
         function(value)
             if CCT_SetModuleEnabled then
                 CCT_SetModuleEnabled("KittenMapShow", value)
@@ -646,6 +666,16 @@ local function ShowControlPanel(kitten)
     maidClearInstructionBtn:SetPoint("TOPLEFT", maidInstructionBox, "BOTTOMLEFT", 0, -6)
     maidClearInstructionBtn:SetText("Clear")
 
+    local maidInstructionDisplayHeader = settingsContent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    maidInstructionDisplayHeader:SetPoint("TOPLEFT", maidClearInstructionBtn, "BOTTOMLEFT", 0, -10)
+    maidInstructionDisplayHeader:SetText("Current Instruction")
+
+    local maidInstructionDisplay = settingsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    maidInstructionDisplay:SetPoint("TOPLEFT", maidInstructionDisplayHeader, "BOTTOMLEFT", 0, -4)
+    maidInstructionDisplay:SetWidth(280)
+    maidInstructionDisplay:SetJustifyH("LEFT")
+    maidInstructionDisplay:SetText("None.")
+
     local maidModuleMissingText = settingsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     maidModuleMissingText:SetPoint("TOPLEFT", maidListContainer, "TOPLEFT", 0, 0)
     maidModuleMissingText:SetWidth(280)
@@ -662,7 +692,7 @@ local function ShowControlPanel(kitten)
     end
 
     local maidSectionTopDepth = -maidListTopY
-    local maidInstructionBlockHeight = 120
+    local maidInstructionBlockHeight = 180
 
     local function UpdateSettingsHeight(tasksHeight)
         local newHeight = maidSectionTopDepth + (tasksHeight or 24) + maidInstructionBlockHeight + 80
@@ -699,6 +729,11 @@ local function ShowControlPanel(kitten)
             text = CCT_MaidTasks_GetInstructionText() or ""
         end
         maidInstructionBox:SetText(text)
+        if text and text ~= "" then
+            maidInstructionDisplay:SetText(text)
+        else
+            maidInstructionDisplay:SetText("None.")
+        end
         maidInstructionUpdating = false
     end
 
