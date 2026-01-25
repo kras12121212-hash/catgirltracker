@@ -385,7 +385,7 @@ local function ShowControlPanel(kitten)
         return cb, y - 24
     end
 
-    local tabNames = { "Stats", "Apply Binds", "Remove Binds", "Settings" }
+    local tabNames = { "Stats", "Control", "Discipline", "Settings" }
     local tabButtons = {}
     local tabFrames = {}
 
@@ -451,91 +451,233 @@ local function ShowControlPanel(kitten)
 
     tabFrames["Stats"] = statsTab
 
-    -- Apply Binds tab
-    local applyTab = CreateTabFrame()
-    local applyScroll, applyContent = CreateScrollArea(applyTab)
-    local y = -4
+    -- Control tab (combined apply + remove)
+    local controlTab = CreateTabFrame()
+    local controlScroll, controlContent = CreateScrollArea(controlTab)
 
-    y = AddHeader(applyContent, y, "Leash")
-    y = AddButton(applyContent, y, "Leash", "leash")
-    y = y - 6
+    local controlBlocks = {}
+    local LayoutControlBlocks
 
-    y = AddHeader(applyContent, y, "Gags and Masks")
-    y = AddButton(applyContent, y, "Cute Kitten Mask", "Your owner gave you a cute~ Kitten Mask ~UwU~ It gives you an irresistible urge to Nya in every sentence.")
-    y = AddButton(applyContent, y, "Small Gag", "Your owner has fitted a small silken gag over your mouth. Speech is now garbled.")
-    y = AddButton(applyContent, y, "Heavy Gag", "Your owner has secured a heavy gag in place. You can no longer speak.")
-    y = AddButton(applyContent, y, "Kitty Mask With Gag!", "Your owner put a gag and a Kitten Mask on you! You must have been a really naughty cat!")
-    y = AddButton(applyContent, y, "Inflatable Gag", "Your owner fits an inflatable gag over your mouth.")
-    y = AddButton(applyContent, y, "Inflate Gag", "Your owner inflates your gag.")
-    y = AddButton(applyContent, y, "Deflate Gag", "Your owner deflates your gag.")
-    y = y - 6
+    local function UpdateControlHeight(totalHeight)
+        controlContent:SetHeight(math.max(200, totalHeight))
+        if controlScroll.UpdateScrollChildRect then
+            controlScroll:UpdateScrollChildRect()
+        end
+    end
 
-    y = AddHeader(applyContent, y, "Earmuffs")
-    y = AddButton(applyContent, y, "Kitten Earmuffs", "Your owner put kitten earmuffs on you.")
-    y = AddButton(applyContent, y, "Heavy Earmuffs", "Your owner put heavy earmuffs on you, Nyo!!!")
-    y = y - 6
+    local function CreateCollapsibleBlock(title)
+        local block = {
+            kind = "collapsible",
+            title = title,
+            expanded = false,
+        }
 
-    y = AddHeader(applyContent, y, "Blindfolds")
-    y = AddButton(applyContent, y, "Light Blindfold", "Your owner put a light blindfold on you.")
-    y = AddButton(applyContent, y, "Cute Kitty Blindfold", "Your owner put a cute kitty blindfold on you.")
-    y = AddButton(applyContent, y, "Full Blindfold", "Your owner put a full blindfold on you.")
-    y = y - 6
+        block.header = CreateFrame("Button", nil, controlContent, "UIPanelButtonTemplate")
+        block.header:SetSize(270, 20)
+        local headerFont = block.header:GetFontString()
+        if headerFont then
+            headerFont:SetJustifyH("LEFT")
+        end
 
-    y = AddHeader(applyContent, y, "Bells")
-    y = AddButton(applyContent, y, "Attach Bell", "You hear a soft *click* as your owner attaches a tiny bell to your collar. Every step now jingles~")
-    y = AddButton(applyContent, y, "Attach Tail Bell", "You hear a soft *click* as your owner attaches a tiny bell to your tail. Every step now jingles~")
-    y = y - 6
+        block.content = CreateFrame("Frame", nil, controlContent)
+        block.content:SetWidth(300)
+        block.content:Hide()
 
-    y = AddHeader(applyContent, y, "Tracking")
-    y = AddButton(applyContent, y, "Attach Tracking Jewel", "Your owner attached a glowing jewel to your collar. Its magic will track your every move!")
+        local function UpdateHeaderVisuals()
+            local marker = block.expanded and "[-]" or "[+]"
+            block.header:SetText(string.format("%s %s", marker, block.title))
+            block.header:SetHeight(20)
+            local fontString = block.header:GetFontString()
+            if fontString then
+                if block.expanded then
+                    fontString:SetTextColor(1, 0.82, 0)
+                else
+                    fontString:SetTextColor(1, 1, 1)
+                end
+            end
+        end
 
-    applyContent:SetHeight(math.max(200, -y + 10))
-    tabFrames["Apply Binds"] = applyTab
+        function block:SetExpanded(expanded)
+            self.expanded = expanded and true or false
+            self.content:SetShown(self.expanded)
+            UpdateHeaderVisuals()
+            if LayoutControlBlocks then
+                LayoutControlBlocks()
+            end
+        end
 
-    -- Remove Binds tab
-    local removeTab = CreateTabFrame()
-    local removeScroll, removeContent = CreateScrollArea(removeTab)
-    y = -4
+        block.header:SetScript("OnClick", function()
+            block:SetExpanded(not block.expanded)
+        end)
 
-    y = AddHeader(removeContent, y, "Leash")
-    y = AddButton(removeContent, y, "Unleash", "unleash")
-    y = y - 6
+        UpdateHeaderVisuals()
+        table.insert(controlBlocks, block)
+        return block
+    end
 
-    y = AddHeader(removeContent, y, "Gags and Masks")
-    y = AddButton(removeContent, y, "Ungag", "Your gag has been removed by your owner. You can speak freely again.")
-    y = AddDelayRow(removeContent, y, "Remove Gag in X Hours", "Your owner set your gag to unlock in %.1f hours (%d) minutes.")
-    y = y - 6
+    local function CreateStaticBlock(builder)
+        local block = {
+            kind = "static",
+            frame = CreateFrame("Frame", nil, controlContent),
+            height = 0,
+        }
+        block.frame:SetWidth(300)
+        block.height = builder(block.frame) or 0
+        block.frame:SetHeight(block.height)
+        table.insert(controlBlocks, block)
+        return block
+    end
 
-    y = AddHeader(removeContent, y, "Earmuffs")
-    y = AddButton(removeContent, y, "Remove Earmuffs", "Your owner removed your earmuffs. Puhhh~")
-    y = AddDelayRow(removeContent, y, "Remove Earmuffs in X Hours", "Your owner set your earmuffs to unlock in %.1f hours (%d) minutes.")
-    y = y - 6
+    local function FinalizeBlockHeight(yValue)
+        return math.max(24, -yValue + 10)
+    end
 
-    y = AddHeader(removeContent, y, "Blindfolds")
-    y = AddButton(removeContent, y, "Remove Blindfold", "Your owner removed your blindfold.")
-    y = AddDelayRow(removeContent, y, "Remove Blindfold in X Hours", "Your owner set your blindfold to unlock in %.1f hours (%d) minutes.")
-    y = y - 6
+    local function BuildCollapsibleContent(block, builder)
+        local yBlock = -4
+        yBlock = builder(block.content, yBlock)
+        block.contentHeight = FinalizeBlockHeight(yBlock)
+        block.content:SetHeight(block.contentHeight)
+        block.content:Hide()
+    end
 
-    y = AddHeader(removeContent, y, "Bell")
-    y = AddButton(removeContent, y, "Remove Bell", "With a gentle touch, your owner removes the bell from your collar. It's quiet again... for now.")
-    y = AddDelayRow(removeContent, y, "Remove Bell in X Hours", "Your owner set your bell to unlock in %.1f hours (%d) minutes.")
-    y = y - 6
+    LayoutControlBlocks = function()
+        local yOffset = -4
+        local spacing = 6
 
-    y = AddHeader(removeContent, y, "Tail Bell")
-    y = AddButton(removeContent, y, "Remove Tail Bell", "With a gentle touch, your owner removes the tail bell. It's quiet again... for now.")
-    y = AddDelayRow(removeContent, y, "Remove Tail Bell in X Hours", "Your owner set your tail bell to unlock in %.1f hours (%d) minutes.")
-    y = y - 6
+        for _, block in ipairs(controlBlocks) do
+            if block.kind == "collapsible" then
+                block.header:ClearAllPoints()
+                block.header:SetPoint("TOPLEFT", controlContent, "TOPLEFT", 0, yOffset)
+                yOffset = yOffset - block.header:GetHeight()
 
-    y = AddHeader(removeContent, y, "Tracking")
-    y = AddButton(removeContent, y, "Remove Tracking Jewel", "Your owner removed the glowing jewel from your collar. Its magic will no longer track you.")
+                if block.expanded then
+                    block.content:ClearAllPoints()
+                    block.content:SetPoint("TOPLEFT", block.header, "BOTTOMLEFT", 0, -2)
+                    block.content:SetHeight(block.contentHeight or 0)
+                    block.content:Show()
+                    yOffset = yOffset - (block.contentHeight or 0) - spacing
+                else
+                    block.content:Hide()
+                    yOffset = yOffset - spacing
+                end
+            else
+                block.frame:ClearAllPoints()
+                block.frame:SetPoint("TOPLEFT", controlContent, "TOPLEFT", 0, yOffset)
+                block.frame:SetHeight(block.height or 0)
+                yOffset = yOffset - (block.height or 0) - spacing
+            end
+        end
 
-    removeContent:SetHeight(math.max(200, -y + 10))
-    tabFrames["Remove Binds"] = removeTab
+        UpdateControlHeight(-yOffset + 10)
+    end
+
+    -- Collapsible: Leash (hidden by default)
+    local leashBlock = CreateCollapsibleBlock("Leash")
+    BuildCollapsibleContent(leashBlock, function(parent, y)
+        y = AddHeader(parent, y, "Apply")
+        y = AddButton(parent, y, "Leash", "leash")
+        y = y - 4
+        y = AddHeader(parent, y, "Remove")
+        y = AddButton(parent, y, "Unleash", "unleash")
+        return y
+    end)
+
+    -- Collapsible: Gags and Masks (hidden by default)
+    local gagBlock = CreateCollapsibleBlock("Gags and Masks")
+    BuildCollapsibleContent(gagBlock, function(parent, y)
+        y = AddHeader(parent, y, "Apply")
+        y = AddButton(parent, y, "Cute Kitten Mask", "Your owner gave you a cute~ Kitten Mask ~UwU~ It gives you an irresistible urge to Nya in every sentence.")
+        y = AddButton(parent, y, "Small Gag", "Your owner has fitted a small silken gag over your mouth. Speech is now garbled.")
+        y = AddButton(parent, y, "Heavy Gag", "Your owner has secured a heavy gag in place. You can no longer speak.")
+        y = AddButton(parent, y, "Kitty Mask With Gag!", "Your owner put a gag and a Kitten Mask on you! You must have been a really naughty cat!")
+        y = AddButton(parent, y, "Inflatable Gag", "Your owner fits an inflatable gag over your mouth.")
+        y = AddButton(parent, y, "Inflate Gag", "Your owner inflates your gag.")
+        y = AddButton(parent, y, "Deflate Gag", "Your owner deflates your gag.")
+        y = y - 4
+        y = AddHeader(parent, y, "Remove")
+        y = AddButton(parent, y, "Ungag", "Your gag has been removed by your owner. You can speak freely again.")
+        y = AddDelayRow(parent, y, "Remove Gag in X Hours", "Your owner set your gag to unlock in %.1f hours (%d) minutes.")
+        return y
+    end)
+
+    -- Collapsible: Blindfolds (hidden by default)
+    local blindfoldBlock = CreateCollapsibleBlock("Blindfolds")
+    BuildCollapsibleContent(blindfoldBlock, function(parent, y)
+        y = AddHeader(parent, y, "Apply")
+        y = AddButton(parent, y, "Light Blindfold", "Your owner put a light blindfold on you.")
+        y = AddButton(parent, y, "Cute Kitty Blindfold", "Your owner put a cute kitty blindfold on you.")
+        y = AddButton(parent, y, "Full Blindfold", "Your owner put a full blindfold on you.")
+        y = y - 4
+        y = AddHeader(parent, y, "Remove")
+        y = AddButton(parent, y, "Remove Blindfold", "Your owner removed your blindfold.")
+        y = AddDelayRow(parent, y, "Remove Blindfold in X Hours", "Your owner set your blindfold to unlock in %.1f hours (%d) minutes.")
+        return y
+    end)
+
+    -- Collapsible: Earmuffs (hidden by default)
+    local earmuffsBlock = CreateCollapsibleBlock("Earmuffs")
+    BuildCollapsibleContent(earmuffsBlock, function(parent, y)
+        y = AddHeader(parent, y, "Apply")
+        y = AddButton(parent, y, "Kitten Earmuffs", "Your owner put kitten earmuffs on you.")
+        y = AddButton(parent, y, "Heavy Earmuffs", "Your owner put heavy earmuffs on you, Nyo!!!")
+        y = y - 4
+        y = AddHeader(parent, y, "Remove")
+        y = AddButton(parent, y, "Remove Earmuffs", "Your owner removed your earmuffs. Puhhh~")
+        y = AddDelayRow(parent, y, "Remove Earmuffs in X Hours", "Your owner set your earmuffs to unlock in %.1f hours (%d) minutes.")
+        return y
+    end)
+
+    -- Collapsible: Bells (hidden by default)
+    local bellsBlock = CreateCollapsibleBlock("Bells")
+    BuildCollapsibleContent(bellsBlock, function(parent, y)
+        y = AddHeader(parent, y, "Apply")
+        y = AddButton(parent, y, "Attach Bell", "You hear a soft *click* as your owner attaches a tiny bell to your collar. Every step now jingles~")
+        y = AddButton(parent, y, "Attach Tail Bell", "You hear a soft *click* as your owner attaches a tiny bell to your tail. Every step now jingles~")
+        y = y - 4
+        y = AddHeader(parent, y, "Remove")
+        y = AddButton(parent, y, "Remove Bell", "With a gentle touch, your owner removes the bell from your collar. It's quiet again... for now.")
+        y = AddDelayRow(parent, y, "Remove Bell in X Hours", "Your owner set your bell to unlock in %.1f hours (%d) minutes.")
+        y = AddButton(parent, y, "Remove Tail Bell", "With a gentle touch, your owner removes the tail bell. It's quiet again... for now.")
+        y = AddDelayRow(parent, y, "Remove Tail Bell in X Hours", "Your owner set your tail bell to unlock in %.1f hours (%d) minutes.")
+        return y
+    end)
+
+    -- Collapsible: Tracking (hidden by default)
+    local trackingBlock = CreateCollapsibleBlock("Tracking")
+    BuildCollapsibleContent(trackingBlock, function(parent, y)
+        y = AddHeader(parent, y, "Apply")
+        y = AddButton(parent, y, "Attach Tracking Jewel", "Your owner attached a glowing jewel to your collar. Its magic will track your every move!")
+        y = y - 4
+        y = AddHeader(parent, y, "Remove")
+        y = AddButton(parent, y, "Remove Tracking Jewel", "Your owner removed the glowing jewel from your collar. Its magic will no longer track you.")
+        return y
+    end)
+
+    LayoutControlBlocks()
+    tabFrames["Control"] = controlTab
+
+    -- Discipline tab
+    local disciplineTab = CreateTabFrame()
+    local disciplineScroll, disciplineContent = CreateScrollArea(disciplineTab)
+    local disciplineY = -4
+
+    disciplineY = AddHeader(disciplineContent, disciplineY, "Discipline")
+    local spankBtn = CreateFrame("Button", nil, disciplineContent, "UIPanelButtonTemplate")
+    spankBtn:SetSize(240, 20)
+    spankBtn:SetPoint("TOPLEFT", 0, disciplineY)
+    spankBtn:SetText("Spank")
+    spankBtn:SetScript("OnClick", function()
+        -- Placeholder button: intentionally does nothing for now.
+    end)
+    disciplineY = disciplineY - 24
+
+    disciplineContent:SetHeight(math.max(120, -disciplineY + 10))
+    tabFrames["Discipline"] = disciplineTab
 
     -- Settings tab
     local settingsTab = CreateTabFrame()
     local settingsScroll, settingsContent = CreateScrollArea(settingsTab)
-    y = -4
+    local y = -4
 
     y = AddHeader(settingsContent, y, "Debug")
     local debugBox
