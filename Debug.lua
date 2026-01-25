@@ -7,6 +7,7 @@ local defaultModules = {
     InnSlackerTracker = true,
     PetTracker = true,
     KittenMapShow = false,
+    MaidTasks = true,
 }
 
 for name, defaultValue in pairs(defaultModules) do

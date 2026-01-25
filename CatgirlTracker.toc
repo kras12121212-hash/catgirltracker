@@ -16,6 +16,8 @@ Blindfold.lua
 BellCollar.lua
 BellTail.lua
 KittenEars.lua
+MaidTaskSceduler.lua
+MaidTaskReciver.lua
 CatGirlControlCenter.lua
 SendData.lua
 ReciveData.lua

@@ -603,7 +603,205 @@ local function ShowControlPanel(kitten)
         end
     )
 
-    settingsContent:SetHeight(math.max(160, -y + 10))
+    y = y - 6
+    y = AddHeader(settingsContent, y, "Maid Tasks")
+
+    local maidInput = CreateFrame("EditBox", nil, settingsContent, "InputBoxTemplate")
+    maidInput:SetSize(180, 20)
+    maidInput:SetPoint("TOPLEFT", 0, y)
+    maidInput:SetAutoFocus(false)
+    maidInput:SetText("")
+
+    local maidAddBtn = CreateFrame("Button", nil, settingsContent, "UIPanelButtonTemplate")
+    maidAddBtn:SetSize(90, 20)
+    maidAddBtn:SetPoint("LEFT", maidInput, "RIGHT", 6, 0)
+    maidAddBtn:SetText("Add Task")
+
+    local maidListTopY = y - 26
+    local maidListContainer = CreateFrame("Frame", nil, settingsContent)
+    maidListContainer:SetPoint("TOPLEFT", 0, maidListTopY)
+    maidListContainer:SetWidth(280)
+    maidListContainer:SetHeight(24)
+
+    local maidRows = {}
+    local maidInstructionUpdating = false
+
+    local maidInstructionHeader = settingsContent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    maidInstructionHeader:SetPoint("TOPLEFT", maidListContainer, "BOTTOMLEFT", 0, -12)
+    maidInstructionHeader:SetText("Maid Instructions")
+
+    local maidInstructionBox = CreateFrame("EditBox", nil, settingsContent, "InputBoxTemplate")
+    maidInstructionBox:SetSize(200, 20)
+    maidInstructionBox:SetPoint("TOPLEFT", maidInstructionHeader, "BOTTOMLEFT", 0, -6)
+    maidInstructionBox:SetAutoFocus(false)
+    maidInstructionBox:SetText("")
+
+    local maidSetInstructionBtn = CreateFrame("Button", nil, settingsContent, "UIPanelButtonTemplate")
+    maidSetInstructionBtn:SetSize(60, 20)
+    maidSetInstructionBtn:SetPoint("LEFT", maidInstructionBox, "RIGHT", 6, 0)
+    maidSetInstructionBtn:SetText("Set")
+
+    local maidClearInstructionBtn = CreateFrame("Button", nil, settingsContent, "UIPanelButtonTemplate")
+    maidClearInstructionBtn:SetSize(60, 20)
+    maidClearInstructionBtn:SetPoint("TOPLEFT", maidInstructionBox, "BOTTOMLEFT", 0, -6)
+    maidClearInstructionBtn:SetText("Clear")
+
+    local maidModuleMissingText = settingsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    maidModuleMissingText:SetPoint("TOPLEFT", maidListContainer, "TOPLEFT", 0, 0)
+    maidModuleMissingText:SetWidth(280)
+    maidModuleMissingText:SetJustifyH("LEFT")
+    maidModuleMissingText:SetText("|cffff5555Maid Tasks module not loaded.|r")
+    maidModuleMissingText:Hide()
+
+    local function ClearMaidRows()
+        for _, row in ipairs(maidRows) do
+            row:Hide()
+            row:SetParent(nil)
+        end
+        wipe(maidRows)
+    end
+
+    local maidSectionTopDepth = -maidListTopY
+    local maidInstructionBlockHeight = 120
+
+    local function UpdateSettingsHeight(tasksHeight)
+        local newHeight = maidSectionTopDepth + (tasksHeight or 24) + maidInstructionBlockHeight + 80
+        settingsContent:SetHeight(math.max(320, newHeight))
+    end
+
+    local function MaidModuleAvailable()
+        return CCT_MaidTasks_GetOwnerItems and CCT_MaidTasks_AddItem and CCT_MaidTasks_RemoveItemByIndex
+    end
+
+    local function GetMaidItems()
+        if not CCT_MaidTasks_GetOwnerItems then
+            return {}
+        end
+        local items = CCT_MaidTasks_GetOwnerItems()
+        if type(items) ~= "table" then
+            return {}
+        end
+        return items
+    end
+
+    local function GetMaidItemCount(item)
+        if CCT_MaidTasks_GetOwnerItemCount then
+            return CCT_MaidTasks_GetOwnerItemCount(item)
+        end
+        return 0
+    end
+
+    local function RefreshMaidInstructionUI()
+        if maidInstructionUpdating then return end
+        maidInstructionUpdating = true
+        local text = ""
+        if CCT_MaidTasks_GetInstructionText then
+            text = CCT_MaidTasks_GetInstructionText() or ""
+        end
+        maidInstructionBox:SetText(text)
+        maidInstructionUpdating = false
+    end
+
+    local function RefreshMaidTasksUI()
+        ClearMaidRows()
+
+        if not MaidModuleAvailable() then
+            maidModuleMissingText:Show()
+            maidListContainer:SetHeight(24)
+            UpdateSettingsHeight(24)
+            return
+        end
+
+        maidModuleMissingText:Hide()
+
+        local items = GetMaidItems()
+        local rowHeight = 22
+        local offset = 0
+
+        if #items == 0 then
+            local row = CreateFrame("Frame", nil, maidListContainer)
+            row:SetSize(280, rowHeight)
+            row:SetPoint("TOPLEFT", 0, 0)
+
+            local label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            label:SetPoint("LEFT", 0, 0)
+            label:SetWidth(260)
+            label:SetJustifyH("LEFT")
+            label:SetText("No maid tasks yet. Paste an item and click Add Task.")
+
+            table.insert(maidRows, row)
+            offset = rowHeight
+        else
+            for index, item in ipairs(items) do
+                local row = CreateFrame("Frame", nil, maidListContainer)
+                row:SetSize(280, rowHeight)
+                row:SetPoint("TOPLEFT", 0, -offset)
+
+                local label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+                label:SetPoint("LEFT", 0, 0)
+                label:SetWidth(230)
+                label:SetJustifyH("LEFT")
+                label:SetText(string.format("%s: %d (synced)", item.displayName or "Unknown", GetMaidItemCount(item)))
+
+                local removeBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+                removeBtn:SetSize(22, 18)
+                removeBtn:SetPoint("RIGHT", -2, 0)
+                removeBtn:SetText("x")
+                removeBtn:SetScript("OnClick", function()
+                    if CCT_MaidTasks_RemoveItemByIndex then
+                        CCT_MaidTasks_RemoveItemByIndex(index)
+                    end
+                    RefreshMaidTasksUI()
+                end)
+
+                table.insert(maidRows, row)
+                offset = offset + rowHeight
+            end
+        end
+
+        local tasksHeight = math.max(rowHeight, offset + 4)
+        maidListContainer:SetHeight(tasksHeight)
+        UpdateSettingsHeight(tasksHeight)
+    end
+
+    local function AddTaskFromInput()
+        local text = maidInput:GetText()
+        if not text or text == "" then return end
+        if CCT_MaidTasks_AddItem then
+            CCT_MaidTasks_AddItem(text)
+        end
+        maidInput:SetText("")
+        RefreshMaidTasksUI()
+    end
+
+    maidAddBtn:SetScript("OnClick", AddTaskFromInput)
+    maidInput:SetScript("OnEnterPressed", AddTaskFromInput)
+
+    maidSetInstructionBtn:SetScript("OnClick", function()
+        if CCT_MaidTasks_SetInstructionText then
+            CCT_MaidTasks_SetInstructionText(maidInstructionBox:GetText() or "")
+        end
+        RefreshMaidInstructionUI()
+    end)
+
+    maidInstructionBox:SetScript("OnEnterPressed", function()
+        if CCT_MaidTasks_SetInstructionText then
+            CCT_MaidTasks_SetInstructionText(maidInstructionBox:GetText() or "")
+        end
+        RefreshMaidInstructionUI()
+    end)
+
+    maidClearInstructionBtn:SetScript("OnClick", function()
+        maidInstructionBox:SetText("")
+        if CCT_MaidTasks_SetInstructionText then
+            CCT_MaidTasks_SetInstructionText("")
+        end
+        RefreshMaidInstructionUI()
+    end)
+
+    frame.UpdateMaidTasksUI = RefreshMaidTasksUI
+    frame.UpdateMaidInstructionUI = RefreshMaidInstructionUI
+    UpdateSettingsHeight(maidListContainer:GetHeight() or 24)
     tabFrames["Settings"] = settingsTab
 
     local function ShowTab(name)
@@ -620,6 +818,15 @@ local function ShowControlPanel(kitten)
         frame.selectedTab = name
         if name == "Stats" and frame.UpdateStats then
             frame:UpdateStats()
+            return
+        end
+        if name == "Settings" then
+            if frame.UpdateMaidInstructionUI then
+                frame:UpdateMaidInstructionUI()
+            end
+            if frame.UpdateMaidTasksUI then
+                frame:UpdateMaidTasksUI()
+            end
         end
     end
 
