@@ -12,6 +12,7 @@ local addonPrefix = "CatgirlTracker"
 local masterName = "Hollykitten" -- short name only (no realm)
 local myName = UnitName("player")
 local myShortName = myName:match("^[^%-]+")
+local TAIL_BELL_CLOSE_RANGE = 0.02
 local isMaster = (myShortName:lower() == masterName:lower()) -- ← controls master mode
 
 local function RequestGuildRoster()
@@ -41,6 +42,68 @@ local function IsOwnerOf(senderShort)
         end
     end
     return false
+end
+
+local function ParseNumber(value)
+    if not value or value == "nil" then return nil end
+    return tonumber(value)
+end
+
+local function GetPlayerMapCoords()
+    if C_Map and C_Map.GetBestMapForUnit and C_Map.GetPlayerMapPosition then
+        local mapID = C_Map.GetBestMapForUnit("player")
+        if not mapID then return nil end
+        local pos = C_Map.GetPlayerMapPosition(mapID, "player")
+        if not pos then return nil end
+        local x, y = pos.x, pos.y
+        if pos.GetXY then
+            x, y = pos:GetXY()
+        end
+        if x and y then
+            return mapID, x, y
+        end
+    end
+    if GetPlayerMapPosition then
+        local x, y = GetPlayerMapPosition("player")
+        if x and y then
+            return nil, x, y
+        end
+    end
+end
+
+local function ParseTailBellJingle(msg)
+    local owner, mapID, x, y = msg:match("^TailBellJingle, owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)")
+    if not owner then return nil end
+    return owner:match("^[^%-]+"), ParseNumber(mapID), ParseNumber(x), ParseNumber(y)
+end
+
+local function IsTailBellClose(mapID, x, y)
+    local ownerMapID, ownerX, ownerY = GetPlayerMapCoords()
+    if not ownerMapID or not ownerX or not ownerY then return false end
+    if not mapID or not x or not y then return false end
+    if ownerMapID ~= mapID then return false end
+    local dx = ownerX - x
+    local dy = ownerY - y
+    local dist = math.sqrt(dx * dx + dy * dy)
+    return dist <= TAIL_BELL_CLOSE_RANGE, dist
+end
+
+local function HandleTailBellJingle(msg, senderShort)
+    local ownerShort, mapID, x, y = ParseTailBellJingle(msg)
+    if not ownerShort or ownerShort:lower() ~= myShortName:lower() then
+        return
+    end
+    local close, dist = IsTailBellClose(mapID, x, y)
+    if close then
+        PlaySoundFile("Interface\\AddOns\\CatgirlTracker\\Sounds\\sbell4seconds.ogg", "Master")
+        print("|cff88ff88CatgirlTracker:|r Tail bell jingle heard from:", senderShort)
+    else
+        if dist then
+            print("|cff88ff88CatgirlTracker:|r Tail bell jingle too far from:", senderShort, string.format("(%.4f)", dist))
+        else
+            print("|cff88ff88CatgirlTracker:|r Tail bell jingle ignored (no position):", senderShort)
+        end
+    end
 end
 
 -- Register prefix once
@@ -203,24 +266,36 @@ end
 local f = CreateFrame("Frame")
 f:RegisterEvent("CHAT_MSG_ADDON")
 f:SetScript("OnEvent", function(_, event, prefix, msg, channel, sender)
-    if event == "CHAT_MSG_ADDON" and prefix == addonPrefix and channel == "WHISPER" then
-        local shortName = sender:match("^[^%-]+")
-        if not isMaster and not IsOwnerOf(shortName) then
-            return
-        end
-
-        -- Prepare DB structure for that slave
-        ensureSlaveDatabases(shortName)
-
-        -- Now you can access their DBs
-        local logTableGuild = CatgirlGuildDB.GuildLog[shortName]
-        local logTablePet = CatgirlPetDB.PetLog[shortName]
-        local logTableZone = CatgirlZoneDB.ZoneLog[shortName]
-        local logTableBehavior = CatgirlBehaviorDB.BehaviorLog[shortName]
-        parseAndStoreSlaveData(msg, sender)
-        -- Debug: output that slave sent something
-        print("|cff88ff88CatgirlTracker:|r Received WHISPER addon message from slave:", shortName)
+    if event ~= "CHAT_MSG_ADDON" or prefix ~= addonPrefix then
+        return
     end
+
+    local shortName = sender and sender:match("^[^%-]+")
+    if not shortName then return end
+
+    if msg and msg:match("^TailBellJingle,") then
+        HandleTailBellJingle(msg, shortName)
+        return
+    end
+
+    if channel ~= "WHISPER" then
+        return
+    end
+    if not isMaster and not IsOwnerOf(shortName) then
+        return
+    end
+
+    -- Prepare DB structure for that slave
+    ensureSlaveDatabases(shortName)
+
+    -- Now you can access their DBs
+    local logTableGuild = CatgirlGuildDB.GuildLog[shortName]
+    local logTablePet = CatgirlPetDB.PetLog[shortName]
+    local logTableZone = CatgirlZoneDB.ZoneLog[shortName]
+    local logTableBehavior = CatgirlBehaviorDB.BehaviorLog[shortName]
+    parseAndStoreSlaveData(msg, sender)
+    -- Debug: output that slave sent something
+    print("|cff88ff88CatgirlTracker:|r Received WHISPER addon message from slave:", shortName)
 end)
 
 

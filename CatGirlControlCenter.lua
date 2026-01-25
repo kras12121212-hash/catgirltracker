@@ -107,6 +107,49 @@ local function FormatCoords(entry)
     return string.format("%s (%s)", stamp or "Unknown time", mapPart)
 end
 
+local function GetPlayerMapCoords()
+    if C_Map and C_Map.GetBestMapForUnit and C_Map.GetPlayerMapPosition then
+        local mapID = C_Map.GetBestMapForUnit("player")
+        if not mapID then return nil end
+        local pos = C_Map.GetPlayerMapPosition(mapID, "player")
+        if not pos then return nil end
+        local x, y = pos.x, pos.y
+        if pos.GetXY then
+            x, y = pos:GetXY()
+        end
+        if x and y then
+            return mapID, x, y
+        end
+    end
+    if GetPlayerMapPosition then
+        local x, y = GetPlayerMapPosition("player")
+        if x and y then
+            return nil, x, y
+        end
+    end
+end
+
+local function FormatDistanceToKitten(entry)
+    if not entry or not entry.x or not entry.y then
+        return "Distance to kitten: Unknown"
+    end
+
+    local ownerMapID, ownerX, ownerY = GetPlayerMapCoords()
+    if not ownerX or not ownerY then
+        return "Distance to kitten: Unknown (owner position)"
+    end
+
+    if entry.mapID and ownerMapID and entry.mapID ~= ownerMapID then
+        return string.format("Distance to kitten: Map mismatch (kitten map %s, owner map %s)", tostring(entry.mapID), tostring(ownerMapID))
+    end
+
+    local dx = ownerX - entry.x
+    local dy = ownerY - entry.y
+    local dist = math.sqrt(dx * dx + dy * dy)
+    local mapPart = entry.mapID and ("map " .. entry.mapID) or "map ?"
+    return string.format("Distance to kitten: %.4f (%s units)", dist, mapPart)
+end
+
 local function FormatRemaining(seconds)
     if not seconds or seconds <= 0 then return nil end
     local total = math.floor(seconds)
@@ -172,9 +215,12 @@ local function BuildStatsLines(kittenName)
         and CatgirlLocationDB.LocationLog
         and CatgirlLocationDB.LocationLog[kittenKey]
     if locationLog and #locationLog > 0 then
-        table.insert(lines, "Last Location Sync: " .. FormatCoords(locationLog[#locationLog]))
+        local lastLocation = locationLog[#locationLog]
+        table.insert(lines, "Last Location Sync: " .. FormatCoords(lastLocation))
+        table.insert(lines, FormatDistanceToKitten(lastLocation))
     else
         table.insert(lines, "Last Location Sync: None")
+        table.insert(lines, "Distance to kitten: Unknown")
     end
 
     local timerLines = {}

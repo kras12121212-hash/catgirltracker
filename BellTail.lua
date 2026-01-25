@@ -1,6 +1,7 @@
 local kittyname = UnitName("player")
 local tailBellActive = false
 local tailBellTimerScheduled = false
+local addonPrefix = "CatgirlTracker"
 
 -- DB Setup
 CatgirlBehaviorDB = CatgirlBehaviorDB or {}
@@ -32,12 +33,78 @@ function getOwnerFromNote()
     end
 end
 
+local ownerCache = nil
+local ownerCacheAt = 0
+local OWNER_CACHE_SECONDS = 60
+
+local function GetCachedOwner()
+    local now = time()
+    if ownerCache and (now - ownerCacheAt) < OWNER_CACHE_SECONDS then
+        return ownerCache
+    end
+    ownerCacheAt = now
+    ownerCache = getOwnerFromNote()
+    if ownerCache then
+        ownerCache = ownerCache:match("^[^%-]+")
+    end
+    return ownerCache
+end
+
+local function Round(value, places)
+    if not value then return nil end
+    local pow = 10 ^ (places or 4)
+    return math.floor(value * pow + 0.5) / pow
+end
+
+local function GetMapPosition()
+    if C_Map and C_Map.GetBestMapForUnit and C_Map.GetPlayerMapPosition then
+        local mapID = C_Map.GetBestMapForUnit("player")
+        if not mapID then return nil end
+        local pos = C_Map.GetPlayerMapPosition(mapID, "player")
+        if not pos then return nil end
+        local x, y = pos.x, pos.y
+        if pos.GetXY then
+            x, y = pos:GetXY()
+        end
+        if x and y then
+            return mapID, Round(x, 4), Round(y, 4)
+        end
+    end
+    if GetPlayerMapPosition then
+        local x, y = GetPlayerMapPosition("player")
+        if x and y then
+            return nil, Round(x, 4), Round(y, 4)
+        end
+    end
+end
+
+local function SendTailBellJingle()
+    if not C_ChatInfo or not C_ChatInfo.SendAddonMessage then return end
+    local owner = GetCachedOwner()
+    if not owner then return end
+    if C_ChatInfo.RegisterAddonMessagePrefix then
+        C_ChatInfo.RegisterAddonMessagePrefix(addonPrefix)
+    end
+
+    local mapID, x, y = GetMapPosition()
+    local msg = string.format(
+        "TailBellJingle, owner:%s, mapID:%s, x:%s, y:%s",
+        owner,
+        tostring(mapID or "nil"),
+        tostring(x or "nil"),
+        tostring(y or "nil")
+    )
+    C_ChatInfo.SendAddonMessage(addonPrefix, msg, "GUILD")
+    CCT_AutoPrint("|cff88ff88CatgirlTracker:|r Tail bell jingle sent.")
+end
+
 -- Tail bell trigger
 local function TriggerBellEvent()
     if not tailBellActive then return end
     if IsPlayerMoving and not IsPlayerMoving() then return end
 
     PlaySoundFile("Interface\\AddOns\\CatgirlTracker\\Sounds\\sbell4seconds.ogg", "Master")
+    SendTailBellJingle()
 
 end
 
