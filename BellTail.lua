@@ -56,26 +56,38 @@ local function Round(value, places)
     return math.floor(value * pow + 0.5) / pow
 end
 
+local function GetInstanceID()
+    if not GetInstanceInfo then
+        return nil
+    end
+    local _, _, _, _, _, _, _, instanceID = GetInstanceInfo()
+    if instanceID and instanceID > 0 then
+        return instanceID
+    end
+end
+
 local function GetMapPosition()
+    local instanceID = GetInstanceID()
     if C_Map and C_Map.GetBestMapForUnit and C_Map.GetPlayerMapPosition then
         local mapID = C_Map.GetBestMapForUnit("player")
-        if not mapID then return nil end
+        if not mapID then return nil, nil, nil, instanceID end
         local pos = C_Map.GetPlayerMapPosition(mapID, "player")
-        if not pos then return nil end
+        if not pos then return nil, nil, nil, instanceID end
         local x, y = pos.x, pos.y
         if pos.GetXY then
             x, y = pos:GetXY()
         end
         if x and y then
-            return mapID, Round(x, 4), Round(y, 4)
+            return mapID, Round(x, 4), Round(y, 4), instanceID
         end
     end
     if GetPlayerMapPosition then
         local x, y = GetPlayerMapPosition("player")
         if x and y then
-            return nil, Round(x, 4), Round(y, 4)
+            return nil, Round(x, 4), Round(y, 4), instanceID
         end
     end
+    return nil, nil, nil, instanceID
 end
 
 local function SendTailBellJingle()
@@ -86,13 +98,14 @@ local function SendTailBellJingle()
         C_ChatInfo.RegisterAddonMessagePrefix(addonPrefix)
     end
 
-    local mapID, x, y = GetMapPosition()
+    local mapID, x, y, instanceID = GetMapPosition()
     local msg = string.format(
-        "TailBellJingle, owner:%s, mapID:%s, x:%s, y:%s",
+        "TailBellJingle, owner:%s, mapID:%s, x:%s, y:%s, instanceID:%s",
         owner,
         tostring(mapID or "nil"),
         tostring(x or "nil"),
-        tostring(y or "nil")
+        tostring(y or "nil"),
+        tostring(instanceID or "nil")
     )
     C_ChatInfo.SendAddonMessage(addonPrefix, msg, "GUILD")
     CCT_AutoPrint("|cff88ff88CatgirlTracker:|r Tail bell jingle sent.")

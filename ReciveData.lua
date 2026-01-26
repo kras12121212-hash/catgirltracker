@@ -22,6 +22,12 @@ local PAW_SQUEAK_SOUNDS = {
     "Interface\\AddOns\\CatgirlTracker\\Sounds\\pawsqueak5.wav",
 }
 local PAW_SQUEAK_COOLDOWN = 2
+local PAW_CREAK_SOUNDS = {
+    "Interface\\AddOns\\CatgirlTracker\\Sounds\\creak-1.mp3",
+    "Interface\\AddOns\\CatgirlTracker\\Sounds\\creak-2.mp3",
+    "Interface\\AddOns\\CatgirlTracker\\Sounds\\creak-3.mp3",
+}
+local PAW_CREAK_COOLDOWN = 2
 local isMaster = (myShortName:lower() == masterName:lower()) -- ← controls master mode
 
 local function RequestGuildRoster()
@@ -59,6 +65,7 @@ local function ParseNumber(value)
 end
 
 local lastPawSqueakAt = 0
+local lastPawCreakAt = 0
 
 local function GetNow()
     if GetTime then
@@ -76,8 +83,21 @@ local function CanPlayPawSqueak()
     return true
 end
 
+local function CanPlayPawCreak()
+    local now = GetNow()
+    if now - lastPawCreakAt < PAW_CREAK_COOLDOWN then
+        return false
+    end
+    lastPawCreakAt = now
+    return true
+end
+
 local function GetRandomPawSqueakSound()
     return PAW_SQUEAK_SOUNDS[math.random(#PAW_SQUEAK_SOUNDS)]
+end
+
+local function GetRandomPawCreakSound()
+    return PAW_CREAK_SOUNDS[math.random(#PAW_CREAK_SOUNDS)]
 end
 
 local function GetPlayerMapCoords()
@@ -102,29 +122,53 @@ local function GetPlayerMapCoords()
     end
 end
 
-local function ParseTailBellJingle(msg)
-    local owner, mapID, x, y = msg:match("^TailBellJingle, owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)")
-    if not owner then return nil end
-    return owner:match("^[^%-]+"), ParseNumber(mapID), ParseNumber(x), ParseNumber(y)
+local function GetInstanceID()
+    if not GetInstanceInfo then
+        return nil
+    end
+    local _, _, _, _, _, _, _, instanceID = GetInstanceInfo()
+    if instanceID and instanceID > 0 then
+        return instanceID
+    end
 end
 
-local function IsTailBellClose(mapID, x, y)
+local function IsSameInstance(instanceID)
+    local myInstanceID = GetInstanceID()
+    if not instanceID or not myInstanceID then
+        return false
+    end
+    return instanceID == myInstanceID
+end
+
+local function ParseTailBellJingle(msg)
+    local owner, mapID, x, y, instanceID = msg:match("^TailBellJingle, owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)")
+    if not owner then
+        owner, mapID, x, y = msg:match("^TailBellJingle, owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)")
+    end
+    if not owner then return nil end
+    return owner:match("^[^%-]+"), ParseNumber(mapID), ParseNumber(x), ParseNumber(y), ParseNumber(instanceID)
+end
+
+local function IsTailBellClose(mapID, x, y, instanceID)
     local ownerMapID, ownerX, ownerY = GetPlayerMapCoords()
-    if not ownerMapID or not ownerX or not ownerY then return false end
-    if not mapID or not x or not y then return false end
-    if ownerMapID ~= mapID then return false end
-    local dx = ownerX - x
-    local dy = ownerY - y
-    local dist = math.sqrt(dx * dx + dy * dy)
-    return dist <= TAIL_BELL_CLOSE_RANGE, dist
+    if ownerMapID and ownerX and ownerY and mapID and x and y and ownerMapID == mapID then
+        local dx = ownerX - x
+        local dy = ownerY - y
+        local dist = math.sqrt(dx * dx + dy * dy)
+        return dist <= TAIL_BELL_CLOSE_RANGE, dist
+    end
+    if IsSameInstance(instanceID) then
+        return true, nil
+    end
+    return false, nil
 end
 
 local function HandleTailBellJingle(msg, senderShort)
-    local ownerShort, mapID, x, y = ParseTailBellJingle(msg)
+    local ownerShort, mapID, x, y, instanceID = ParseTailBellJingle(msg)
     if not ownerShort or ownerShort:lower() ~= myShortName:lower() then
         return
     end
-    local close, dist = IsTailBellClose(mapID, x, y)
+    local close, dist = IsTailBellClose(mapID, x, y, instanceID)
     if close then
         PlaySoundFile("Interface\\AddOns\\CatgirlTracker\\Sounds\\sbell4seconds.ogg", "Master")
         print("|cff88ff88CatgirlTracker:|r Tail bell jingle heard from:", senderShort)
@@ -138,28 +182,34 @@ local function HandleTailBellJingle(msg, senderShort)
 end
 
 local function ParsePawSqueak(msg)
-    local owner, mapID, x, y = msg:match("^PawSqueak, owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)")
+    local owner, mapID, x, y, instanceID = msg:match("^PawSqueak, owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)")
+    if not owner then
+        owner, mapID, x, y = msg:match("^PawSqueak, owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)")
+    end
     if not owner then return nil end
-    return owner:match("^[^%-]+"), ParseNumber(mapID), ParseNumber(x), ParseNumber(y)
+    return owner:match("^[^%-]+"), ParseNumber(mapID), ParseNumber(x), ParseNumber(y), ParseNumber(instanceID)
 end
 
-local function IsPawSqueakClose(mapID, x, y)
+local function IsPawSqueakClose(mapID, x, y, instanceID)
     local ownerMapID, ownerX, ownerY = GetPlayerMapCoords()
-    if not ownerMapID or not ownerX or not ownerY then return false end
-    if not mapID or not x or not y then return false end
-    if ownerMapID ~= mapID then return false end
-    local dx = ownerX - x
-    local dy = ownerY - y
-    local dist = math.sqrt(dx * dx + dy * dy)
-    return dist <= PAW_SQUEAK_CLOSE_RANGE, dist
+    if ownerMapID and ownerX and ownerY and mapID and x and y and ownerMapID == mapID then
+        local dx = ownerX - x
+        local dy = ownerY - y
+        local dist = math.sqrt(dx * dx + dy * dy)
+        return dist <= PAW_SQUEAK_CLOSE_RANGE, dist
+    end
+    if IsSameInstance(instanceID) then
+        return true, nil
+    end
+    return false, nil
 end
 
 local function HandlePawSqueak(msg, senderShort)
-    local ownerShort, mapID, x, y = ParsePawSqueak(msg)
+    local ownerShort, mapID, x, y, instanceID = ParsePawSqueak(msg)
     if not ownerShort or ownerShort:lower() ~= myShortName:lower() then
         return
     end
-    local close, dist = IsPawSqueakClose(mapID, x, y)
+    local close, dist = IsPawSqueakClose(mapID, x, y, instanceID)
     if close then
         if not CanPlayPawSqueak() then
             return
@@ -171,6 +221,36 @@ local function HandlePawSqueak(msg, senderShort)
             print("|cff88ff88CatgirlTracker:|r Paw squeak too far from:", senderShort, string.format("(%.4f)", dist))
         else
             print("|cff88ff88CatgirlTracker:|r Paw squeak ignored (no position):", senderShort)
+        end
+    end
+end
+
+local function ParsePawCreak(msg)
+    local owner, mapID, x, y, instanceID = msg:match("^PawCreak, owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)")
+    if not owner then
+        owner, mapID, x, y = msg:match("^PawCreak, owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)")
+    end
+    if not owner then return nil end
+    return owner:match("^[^%-]+"), ParseNumber(mapID), ParseNumber(x), ParseNumber(y), ParseNumber(instanceID)
+end
+
+local function HandlePawCreak(msg, senderShort)
+    local ownerShort, mapID, x, y, instanceID = ParsePawCreak(msg)
+    if not ownerShort or ownerShort:lower() ~= myShortName:lower() then
+        return
+    end
+    local close, dist = IsPawSqueakClose(mapID, x, y, instanceID)
+    if close then
+        if not CanPlayPawCreak() then
+            return
+        end
+        PlaySoundFile(GetRandomPawCreakSound(), "Master")
+        print("|cff88ff88CatgirlTracker:|r Paw creak heard from:", senderShort)
+    else
+        if dist then
+            print("|cff88ff88CatgirlTracker:|r Paw creak too far from:", senderShort, string.format("(%.4f)", dist))
+        else
+            print("|cff88ff88CatgirlTracker:|r Paw creak ignored (no position):", senderShort)
         end
     end
 end
@@ -348,6 +428,10 @@ f:SetScript("OnEvent", function(_, event, prefix, msg, channel, sender)
     end
     if msg and msg:match("^PawSqueak,") then
         HandlePawSqueak(msg, shortName)
+        return
+    end
+    if msg and msg:match("^PawCreak,") then
+        HandlePawCreak(msg, shortName)
         return
     end
 

@@ -106,6 +106,7 @@ local function FormatMittensState(state)
         locked = "Locked",
         squeaking = "Squeaking",
         squeking = "Squeaking",
+        heavy = "Locked",
         removed = "None",
         none = "None",
     }

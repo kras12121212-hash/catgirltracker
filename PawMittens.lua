@@ -36,6 +36,12 @@ local PAW_SQUEAK_SOUNDS = {
     "Interface\\AddOns\\CatgirlTracker\\Sounds\\pawsqueak5.wav",
 }
 local PAW_SQUEAK_COOLDOWN = 2
+local PAW_CREAK_SOUNDS = {
+    "Interface\\AddOns\\CatgirlTracker\\Sounds\\creak-1.wav",
+    "Interface\\AddOns\\CatgirlTracker\\Sounds\\creak-2.wav",
+    "Interface\\AddOns\\CatgirlTracker\\Sounds\\creak-3.wav",
+}
+local PAW_CREAK_COOLDOWN = 2
 
 -- Behavior DB setup
 CatgirlBehaviorDB = CatgirlBehaviorDB or {}
@@ -100,33 +106,46 @@ local function Round(value, places)
     return math.floor(value * pow + 0.5) / pow
 end
 
+local function GetInstanceID()
+    if not GetInstanceInfo then
+        return nil
+    end
+    local _, _, _, _, _, _, _, instanceID = GetInstanceInfo()
+    if instanceID and instanceID > 0 then
+        return instanceID
+    end
+end
+
 local function GetMapPosition()
+    local instanceID = GetInstanceID()
     if C_Map and C_Map.GetBestMapForUnit and C_Map.GetPlayerMapPosition then
         local mapID = C_Map.GetBestMapForUnit("player")
         if not mapID then
-            return nil
+            return nil, nil, nil, instanceID
         end
         local pos = C_Map.GetPlayerMapPosition(mapID, "player")
         if not pos then
-            return nil
+            return nil, nil, nil, instanceID
         end
         local x, y = pos.x, pos.y
         if pos.GetXY then
             x, y = pos:GetXY()
         end
         if x and y then
-            return mapID, Round(x, 4), Round(y, 4)
+            return mapID, Round(x, 4), Round(y, 4), instanceID
         end
     end
     if GetPlayerMapPosition then
         local x, y = GetPlayerMapPosition("player")
         if x and y then
-            return nil, Round(x, 4), Round(y, 4)
+            return nil, Round(x, 4), Round(y, 4), instanceID
         end
     end
+    return nil, nil, nil, instanceID
 end
 
 local lastSqueakAt = 0
+local lastCreakAt = 0
 
 local function GetNow()
     if GetTime then
@@ -144,11 +163,24 @@ local function CanPlayPawSqueak()
     return true
 end
 
+local function CanPlayPawCreak()
+    local now = GetNow()
+    if now - lastCreakAt < PAW_CREAK_COOLDOWN then
+        return false
+    end
+    lastCreakAt = now
+    return true
+end
+
 local function GetRandomPawSqueakSound()
     return PAW_SQUEAK_SOUNDS[math.random(#PAW_SQUEAK_SOUNDS)]
 end
 
-local function SendPawSqueak()
+local function GetRandomPawCreakSound()
+    return PAW_CREAK_SOUNDS[math.random(#PAW_CREAK_SOUNDS)]
+end
+
+local function SendPawSound(prefix)
     if not C_ChatInfo or not C_ChatInfo.SendAddonMessage then
         return
     end
@@ -163,15 +195,25 @@ local function SendPawSqueak()
         C_ChatInfo.RegisterAddonMessagePrefix(addonPrefix)
     end
 
-    local mapID, x, y = GetMapPosition()
+    local mapID, x, y, instanceID = GetMapPosition()
     local msg = string.format(
-        "PawSqueak, owner:%s, mapID:%s, x:%s, y:%s",
+        "%s, owner:%s, mapID:%s, x:%s, y:%s, instanceID:%s",
+        prefix,
         owner,
         tostring(mapID or "nil"),
         tostring(x or "nil"),
-        tostring(y or "nil")
+        tostring(y or "nil"),
+        tostring(instanceID or "nil")
     )
     C_ChatInfo.SendAddonMessage(addonPrefix, msg, "GUILD")
+end
+
+local function SendPawSqueak()
+    SendPawSound("PawSqueak")
+end
+
+local function SendPawCreak()
+    SendPawSound("PawCreak")
 end
 
 local function TriggerPawSqueak()
@@ -180,6 +222,14 @@ local function TriggerPawSqueak()
     end
     PlaySoundFile(GetRandomPawSqueakSound(), "Master")
     SendPawSqueak()
+end
+
+local function TriggerPawCreak()
+    if not CanPlayPawCreak() then
+        return
+    end
+    PlaySoundFile(GetRandomPawCreakSound(), "Master")
+    SendPawCreak()
 end
 
 local function LogMittensState(state)
@@ -426,6 +476,10 @@ local function ClearSabotageTimers()
     end
 end
 
+local function IsTimedMittens()
+    return activeMittensType == MITTENS_TYPE_SQUEAKING
+end
+
 local function EndSqueakWindow()
     squeakWindowActive = false
     if currentSabotageSlot and RestoreAction(currentSabotageSlot) then
@@ -434,7 +488,7 @@ local function EndSqueakWindow()
 end
 
 local function StartSqueakWindow()
-    if not pawMittensLocked or activeMittensType ~= MITTENS_TYPE_SQUEAKING then
+    if not pawMittensLocked or not IsTimedMittens() then
         return
     end
     if pendingRestoreSlot then
@@ -554,7 +608,7 @@ local function RestoreMittensState()
     for i = #log, 1, -1 do
         local entry = log[i]
         if entry.event == "PawMittens" then
-            if entry.state == "locked" then
+            if entry.state == "locked" or entry.state == "heavy" then
                 pawMittensLocked = true
                 activeMittensType = MITTENS_TYPE_NORMAL
                 ShowCursorOverlay()
@@ -602,7 +656,7 @@ f:SetScript("OnEvent", function(_, event, ...)
             end
         end
 
-        if pendingSqueakWindow and pawMittensLocked and activeMittensType == MITTENS_TYPE_SQUEAKING then
+        if pendingSqueakWindow and pawMittensLocked and IsTimedMittens() then
             pendingSqueakWindow = false
             StartSqueakWindow()
         end
@@ -618,8 +672,12 @@ f:SetScript("OnEvent", function(_, event, ...)
 
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
         local unit = ...
-        if unit == "player" and pawMittensLocked and activeMittensType == MITTENS_TYPE_SQUEAKING then
-            TriggerPawSqueak()
+        if unit == "player" and pawMittensLocked then
+            if activeMittensType == MITTENS_TYPE_SQUEAKING then
+                TriggerPawSqueak()
+            elseif activeMittensType == MITTENS_TYPE_NORMAL then
+                TriggerPawCreak()
+            end
         end
         return
     end
@@ -635,7 +693,9 @@ f:SetScript("OnEvent", function(_, event, ...)
 
     local text = msg and msg:lower() or ""
 
-    if text:find("squeking paw mittens")
+    if text:find("heavy paw mittens") then
+        ApplyPawMittens(sender, MITTENS_TYPE_NORMAL)
+    elseif text:find("squeking paw mittens")
         or text:find("squeaking paw mittens") then
         ApplyPawMittens(sender, MITTENS_TYPE_SQUEAKING)
     elseif text:find("locked tight paw mittens")
