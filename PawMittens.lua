@@ -1,10 +1,18 @@
 ﻿local kittyname = UnitName("player")
 
+local addonPrefix = "CatgirlTracker"
+
 -- Module state
 local pawMittensLocked = false
+local activeMittensType = nil
 local sabotageTicker = nil
+local squeakCycleTicker = nil
+local squeakWindowTimer = nil
+local squeakWindowActive = false
 local currentSabotageSlot = nil
 local pendingSabotage = false
+local pendingSqueakWindow = false
+local pendingRestoreSlot = nil
 
 -- Action bar sabotage configuration
 local ACTION_SLOTS = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }
@@ -14,7 +22,20 @@ local MITTENS_SAY_TEXT = "Looks like kitten has trouble using her spells with he
 
 -- Cursor overlay configuration
 local MITTENS_TEXTURE_PATH = "Interface\\AddOns\\CatgirlTracker\\Textures\\pawmittens.tga"
+local HEAVY_MITTENS_TEXTURE_PATH = "Interface\\AddOns\\CatgirlTracker\\Textures\\heavypawmittens.tga"
 local MITTENS_TEXTURE_SIZE = 72
+local MITTENS_TYPE_NORMAL = "normal"
+local MITTENS_TYPE_SQUEAKING = "squeaking"
+local SQUEAK_WINDOW_SECONDS = 5
+local SQUEAK_CYCLE_SECONDS = 30
+local PAW_SQUEAK_SOUNDS = {
+    "Interface\\AddOns\\CatgirlTracker\\Sounds\\pawsqueak1.wav",
+    "Interface\\AddOns\\CatgirlTracker\\Sounds\\pawsqueak2.wav",
+    "Interface\\AddOns\\CatgirlTracker\\Sounds\\pawsqueak3.wav",
+    "Interface\\AddOns\\CatgirlTracker\\Sounds\\pawsqueak4.wav",
+    "Interface\\AddOns\\CatgirlTracker\\Sounds\\pawsqueak5.wav",
+}
+local PAW_SQUEAK_COOLDOWN = 2
 
 -- Behavior DB setup
 CatgirlBehaviorDB = CatgirlBehaviorDB or {}
@@ -71,6 +92,96 @@ local function IsOwnerSender(sender)
     return shortSender and shortSender:lower() == owner:lower()
 end
 
+local function Round(value, places)
+    if not value then
+        return nil
+    end
+    local pow = 10 ^ (places or 4)
+    return math.floor(value * pow + 0.5) / pow
+end
+
+local function GetMapPosition()
+    if C_Map and C_Map.GetBestMapForUnit and C_Map.GetPlayerMapPosition then
+        local mapID = C_Map.GetBestMapForUnit("player")
+        if not mapID then
+            return nil
+        end
+        local pos = C_Map.GetPlayerMapPosition(mapID, "player")
+        if not pos then
+            return nil
+        end
+        local x, y = pos.x, pos.y
+        if pos.GetXY then
+            x, y = pos:GetXY()
+        end
+        if x and y then
+            return mapID, Round(x, 4), Round(y, 4)
+        end
+    end
+    if GetPlayerMapPosition then
+        local x, y = GetPlayerMapPosition("player")
+        if x and y then
+            return nil, Round(x, 4), Round(y, 4)
+        end
+    end
+end
+
+local lastSqueakAt = 0
+
+local function GetNow()
+    if GetTime then
+        return GetTime()
+    end
+    return time()
+end
+
+local function CanPlayPawSqueak()
+    local now = GetNow()
+    if now - lastSqueakAt < PAW_SQUEAK_COOLDOWN then
+        return false
+    end
+    lastSqueakAt = now
+    return true
+end
+
+local function GetRandomPawSqueakSound()
+    return PAW_SQUEAK_SOUNDS[math.random(#PAW_SQUEAK_SOUNDS)]
+end
+
+local function SendPawSqueak()
+    if not C_ChatInfo or not C_ChatInfo.SendAddonMessage then
+        return
+    end
+    local owner = GetOwnerFromNote()
+    if owner then
+        owner = owner:match("^[^%-]+")
+    end
+    if not owner or owner == "" then
+        return
+    end
+    if C_ChatInfo.RegisterAddonMessagePrefix then
+        C_ChatInfo.RegisterAddonMessagePrefix(addonPrefix)
+    end
+
+    local mapID, x, y = GetMapPosition()
+    local msg = string.format(
+        "PawSqueak, owner:%s, mapID:%s, x:%s, y:%s",
+        owner,
+        tostring(mapID or "nil"),
+        tostring(x or "nil"),
+        tostring(y or "nil")
+    )
+    C_ChatInfo.SendAddonMessage(addonPrefix, msg, "GUILD")
+end
+
+local function TriggerPawSqueak()
+    if not CanPlayPawSqueak() then
+        return
+    end
+    PlaySoundFile(GetRandomPawSqueakSound(), "Master")
+    SendPawSqueak()
+end
+
 local function LogMittensState(state)
     table.insert(GetBehaviorLog(), {
         timestamp = date("%Y-%m-%d %H:%M"),
@@ -106,6 +217,13 @@ local function UpdateCursorOverlayPosition()
     pawCursorFrame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
 end
 
+local function GetMittensTexturePath()
+    if activeMittensType == MITTENS_TYPE_SQUEAKING then
+        return HEAVY_MITTENS_TEXTURE_PATH
+    end
+    return MITTENS_TEXTURE_PATH
+end
+
 pawCursorFrame:SetScript("OnUpdate", function()
     if not pawMittensLocked then
         return
@@ -114,7 +232,7 @@ pawCursorFrame:SetScript("OnUpdate", function()
 end)
 
 local function ShowCursorOverlay()
-    pawCursorFrame.texture:SetTexture(MITTENS_TEXTURE_PATH)
+    pawCursorFrame.texture:SetTexture(GetMittensTexturePath())
     pawCursorFrame:Show()
     UpdateCursorOverlayPosition()
 end
@@ -142,12 +260,8 @@ local function CaptureAction(slot)
     end
 end
 
-local function RestoreAction(slot)
+local function PerformRestoreAction(slot)
     if not slot then
-        return
-    end
-    if InCombatLockdown() then
-        pendingSabotage = true
         return
     end
 
@@ -178,6 +292,20 @@ local function RestoreAction(slot)
     end
 
     originalActions[slot] = nil
+end
+
+local function RestoreAction(slot)
+    if not slot then
+        return false
+    end
+    if InCombatLockdown() then
+        pendingRestoreSlot = slot
+        return false
+    end
+
+    pendingRestoreSlot = nil
+    PerformRestoreAction(slot)
+    return true
 end
 
 local function EnsureMittensMacro()
@@ -283,39 +411,113 @@ local function SabotageTick()
     PlaceMacroInSlot(nextSlot, macroIndex)
 end
 
-local function StartSabotage()
+local function ClearSabotageTimers()
     if sabotageTicker then
         sabotageTicker:Cancel()
         sabotageTicker = nil
     end
+    if squeakCycleTicker then
+        squeakCycleTicker:Cancel()
+        squeakCycleTicker = nil
+    end
+    if squeakWindowTimer then
+        squeakWindowTimer:Cancel()
+        squeakWindowTimer = nil
+    end
+end
 
+local function EndSqueakWindow()
+    squeakWindowActive = false
+    if currentSabotageSlot and RestoreAction(currentSabotageSlot) then
+        currentSabotageSlot = nil
+    end
+end
+
+local function StartSqueakWindow()
+    if not pawMittensLocked or activeMittensType ~= MITTENS_TYPE_SQUEAKING then
+        return
+    end
+    if pendingRestoreSlot then
+        pendingSqueakWindow = true
+        return
+    end
+    if InCombatLockdown() then
+        pendingSqueakWindow = true
+        return
+    end
+
+    pendingSqueakWindow = false
+    squeakWindowActive = true
+    SabotageTick()
+    if not currentSabotageSlot then
+        squeakWindowActive = false
+        return
+    end
+
+    if squeakWindowTimer then
+        squeakWindowTimer:Cancel()
+        squeakWindowTimer = nil
+    end
+    squeakWindowTimer = C_Timer.NewTimer(SQUEAK_WINDOW_SECONDS, EndSqueakWindow)
+end
+
+local function StartSqueakCycle()
+    if squeakCycleTicker then
+        squeakCycleTicker:Cancel()
+        squeakCycleTicker = nil
+    end
+
+    StartSqueakWindow()
+    squeakCycleTicker = C_Timer.NewTicker(SQUEAK_CYCLE_SECONDS, StartSqueakWindow)
+end
+
+local function StartSabotage()
+    ClearSabotageTimers()
     SabotageTick()
     sabotageTicker = C_Timer.NewTicker(5, SabotageTick)
 end
 
 local function StopSabotage()
-    if sabotageTicker then
-        sabotageTicker:Cancel()
-        sabotageTicker = nil
-    end
+    ClearSabotageTimers()
+    squeakWindowActive = false
+    pendingSqueakWindow = false
+    pendingSabotage = false
 
-    if currentSabotageSlot then
-        RestoreAction(currentSabotageSlot)
+    if currentSabotageSlot and RestoreAction(currentSabotageSlot) then
         currentSabotageSlot = nil
     end
 end
 
-local function ApplyPawMittens(sender)
-    pawMittensLocked = true
-    ShowCursorOverlay()
-    StartSabotage()
-    LogMittensState("locked")
+local function GetMittensResponse(mittensType)
+    if mittensType == MITTENS_TYPE_SQUEAKING then
+        return "Squeaking paw mittens have been locked onto your kitten's paws. They only swap her spells briefly every 30 seconds and squeak whenever she casts."
+    end
+    return "Tight paw mittens have been locked onto your kitten's paws. They are reinforced, so she cannot use her paws properly or extend her claws at all."
+end
 
-    if CCT_RaidNotice then
-        CCT_RaidNotice("Paw mittens locked: paws restricted.")
+local function ApplyPawMittens(sender, mittensType)
+    StopSabotage()
+    pawMittensLocked = true
+    activeMittensType = mittensType or MITTENS_TYPE_NORMAL
+    ShowCursorOverlay()
+
+    if activeMittensType == MITTENS_TYPE_SQUEAKING then
+        StartSqueakCycle()
+        LogMittensState("squeaking")
+    else
+        StartSabotage()
+        LogMittensState("locked")
     end
 
-    local response = "Tight paw mittens have been locked onto your kitten's paws. They are reinforced, so she cannot use her paws properly or extend her claws at all."
+    if CCT_RaidNotice then
+        if activeMittensType == MITTENS_TYPE_SQUEAKING then
+            CCT_RaidNotice("Squeaking paw mittens locked.")
+        else
+            CCT_RaidNotice("Paw mittens locked: paws restricted.")
+        end
+    end
+
+    local response = GetMittensResponse(activeMittensType)
     if sender then
         SendChatMessage(response, "WHISPER", nil, sender)
     end
@@ -323,6 +525,7 @@ end
 
 local function RemovePawMittens(sender, isAuto)
     pawMittensLocked = false
+    activeMittensType = nil
     HideCursorOverlay()
     StopSabotage()
     LogMittensState("removed")
@@ -353,10 +556,17 @@ local function RestoreMittensState()
         if entry.event == "PawMittens" then
             if entry.state == "locked" then
                 pawMittensLocked = true
+                activeMittensType = MITTENS_TYPE_NORMAL
                 ShowCursorOverlay()
                 StartSabotage()
+            elseif entry.state == "squeaking" then
+                pawMittensLocked = true
+                activeMittensType = MITTENS_TYPE_SQUEAKING
+                ShowCursorOverlay()
+                StartSqueakCycle()
             else
                 pawMittensLocked = false
+                activeMittensType = nil
                 HideCursorOverlay()
                 StopSabotage()
             end
@@ -365,6 +575,7 @@ local function RestoreMittensState()
     end
 
     pawMittensLocked = false
+    activeMittensType = nil
     HideCursorOverlay()
     StopSabotage()
 end
@@ -373,17 +584,42 @@ local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("CHAT_MSG_WHISPER")
 f:RegisterEvent("PLAYER_REGEN_ENABLED")
+f:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 
-f:SetScript("OnEvent", function(_, event, msg, sender)
+f:SetScript("OnEvent", function(_, event, ...)
     if event == "PLAYER_LOGIN" then
         RestoreMittensState()
         return
     end
 
     if event == "PLAYER_REGEN_ENABLED" then
+        if pendingRestoreSlot then
+            local slot = pendingRestoreSlot
+            pendingRestoreSlot = nil
+            PerformRestoreAction(slot)
+            if slot == currentSabotageSlot then
+                currentSabotageSlot = nil
+            end
+        end
+
+        if pendingSqueakWindow and pawMittensLocked and activeMittensType == MITTENS_TYPE_SQUEAKING then
+            pendingSqueakWindow = false
+            StartSqueakWindow()
+        end
+
         if pawMittensLocked and pendingSabotage then
             pendingSabotage = false
-            SabotageTick()
+            if activeMittensType == MITTENS_TYPE_NORMAL or squeakWindowActive then
+                SabotageTick()
+            end
+        end
+        return
+    end
+
+    if event == "UNIT_SPELLCAST_SUCCEEDED" then
+        local unit = ...
+        if unit == "player" and pawMittensLocked and activeMittensType == MITTENS_TYPE_SQUEAKING then
+            TriggerPawSqueak()
         end
         return
     end
@@ -392,16 +628,20 @@ f:SetScript("OnEvent", function(_, event, msg, sender)
         return
     end
 
+    local msg, sender = ...
     if not IsOwnerSender(sender) then
         return
     end
 
     local text = msg and msg:lower() or ""
 
-    if text:find("locked tight paw mittens")
+    if text:find("squeking paw mittens")
+        or text:find("squeaking paw mittens") then
+        ApplyPawMittens(sender, MITTENS_TYPE_SQUEAKING)
+    elseif text:find("locked tight paw mittens")
         or text:find("locked onto your paws")
         or text:find("lockable paw mittens") then
-        ApplyPawMittens(sender)
+        ApplyPawMittens(sender, MITTENS_TYPE_NORMAL)
     elseif text:find("removed your paw mittens")
         or text:find("remove paw mittens") then
         RemovePawMittens(sender, false)

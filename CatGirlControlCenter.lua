@@ -104,6 +104,8 @@ local function FormatMittensState(state)
     if not state then return "Unknown" end
     local map = {
         locked = "Locked",
+        squeaking = "Squeaking",
+        squeking = "Squeaking",
         removed = "None",
         none = "None",
     }
@@ -661,6 +663,7 @@ local function ShowControlPanel(kitten)
     BuildCollapsibleContent(mittensBlock, function(parent, y)
         y = AddHeader(parent, y, "Apply")
         y = AddButton(parent, y, "Lockable Paw Mittens", "Your owner has locked tight paw mittens onto your paws. They are reinforced so you cannot use your paws properly or extend your claws at all.")
+        y = AddButton(parent, y, "Squeking Paw Mittens", "Your owner has locked squeking paw mittens onto your paws. They squeak whenever you cast and only swap your spells briefly every 30 seconds.")
         y = y - 4
         y = AddHeader(parent, y, "Remove")
         y = AddButton(parent, y, "Remove Paw Mittens", "Your owner removed your paw mittens. Your paws are free again.")
