@@ -113,6 +113,18 @@ local function FormatMittensState(state)
     return map[state] or tostring(state)
 end
 
+local function FormatHeelsState(state)
+    if not state then return "Unknown" end
+    local map = {
+        maid = "Locking Maid Heels 3-CM",
+        high = "Locking High Heels 8-CM",
+        ballet = "Locking Ballet Boot 12-CM",
+        removed = "None",
+        none = "None",
+    }
+    return map[state] or tostring(state)
+end
+
 local function FormatBooleanState(value)
     if value == nil then return "Unknown" end
     return value and "On" or "Off"
@@ -227,6 +239,9 @@ local function BuildStatsLines(kittenName)
     local mittensEntry = FindLastEvent(log, "PawMittens")
     table.insert(lines, "Paw Mittens: " .. FormatMittensState(mittensEntry and mittensEntry.state))
 
+    local heelsEntry = FindLastEvent(log, "KittenHeels")
+    table.insert(lines, "Heels: " .. FormatHeelsState(heelsEntry and heelsEntry.state))
+
     local bellEntry = FindLastEvent(log, "BellState")
     table.insert(lines, "Bell: " .. FormatBooleanState(bellEntry and bellEntry.state))
 
@@ -256,6 +271,7 @@ local function BuildStatsLines(kittenName)
         { key = "earmuffs", label = "Earmuffs" },
         { key = "blindfold", label = "Blindfold" },
         { key = "mittens", label = "Paw Mittens" },
+        { key = "heels", label = "Heels" },
         { key = "bell", label = "Bell" },
         { key = "tailbell", label = "Tail Bell" },
     }
@@ -669,6 +685,20 @@ local function ShowControlPanel(kitten)
         y = AddHeader(parent, y, "Remove")
         y = AddButton(parent, y, "Remove Paw Mittens", "Your owner removed your paw mittens. Your paws are free again.")
         y = AddDelayRow(parent, y, "Remove Paw Mittens in X Hours", "Your owner set your paw mittens to unlock in %.1f hours (%d) minutes.")
+        return y
+    end)
+
+    -- Collapsible: Heels (hidden by default)
+    local heelsBlock = CreateCollapsibleBlock("Heels")
+    BuildCollapsibleContent(heelsBlock, function(parent, y)
+        y = AddHeader(parent, y, "Apply")
+        y = AddButton(parent, y, "Locking Maid Heels 3-CM", "Your owner locked you into locking maid heels 3-CM. The heels are locked on; the higher the heel, the harder it is to walk.")
+        y = AddButton(parent, y, "Locking High Heels 8-CM", "Your owner locked you into locking high heels 8-CM. The heels are locked on; the higher the heel, the harder it is to walk.")
+        y = AddButton(parent, y, "Locking Ballet Boot 12-CM", "Your owner locked you into locking ballet boot 12-CM. The heels are locked on; the higher the heel, the harder it is to walk. Your feet were squeezed into them, and it is going to be painful for an untrained kitten after just a few minutes.")
+        y = y - 4
+        y = AddHeader(parent, y, "Remove")
+        y = AddButton(parent, y, "Remove Heels", "Your owner removed your heels. Your feet are free again.")
+        y = AddDelayRow(parent, y, "Remove Heels in X Hours", "Your owner set your heels to unlock in %.1f hours (%d) minutes.")
         return y
     end)
 

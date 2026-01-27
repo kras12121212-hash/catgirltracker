@@ -23,6 +23,7 @@ SendData.lua
 ReciveData.lua
 KittenMapShow.lua
 PawMittens.lua
+LockingKittenHeels.lua
 KittenLockTracker.lua
 CreateLocalMacro.lua
 PetTracker.lua

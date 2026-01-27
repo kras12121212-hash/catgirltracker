@@ -14,6 +14,7 @@ local myName = UnitName("player")
 local myShortName = myName:match("^[^%-]+")
 local TAIL_BELL_CLOSE_RANGE = 0.02
 local PAW_SQUEAK_CLOSE_RANGE = 0.02
+local HEELS_STEP_CLOSE_RANGE = 0.02
 local PAW_SQUEAK_SOUNDS = {
     "Interface\\AddOns\\CatgirlTracker\\Sounds\\pawsqueak1.wav",
     "Interface\\AddOns\\CatgirlTracker\\Sounds\\pawsqueak2.wav",
@@ -28,6 +29,12 @@ local PAW_CREAK_SOUNDS = {
     "Interface\\AddOns\\CatgirlTracker\\Sounds\\creak-3.mp3",
 }
 local PAW_CREAK_COOLDOWN = 2
+local HEELS_STEP_SOUNDS = {
+    HeelsStep3 = "Interface\\AddOns\\CatgirlTracker\\Sounds\\HighHeels3.wav",
+    HeelsStep8 = "Interface\\AddOns\\CatgirlTracker\\Sounds\\HighHeels8.wav",
+    HeelsStep12 = "Interface\\AddOns\\CatgirlTracker\\Sounds\\HighHeels12.wav",
+}
+local HEELS_STEP_COOLDOWN = 0.8
 local isMaster = (myShortName:lower() == masterName:lower()) -- ← controls master mode
 
 local function RequestGuildRoster()
@@ -66,6 +73,7 @@ end
 
 local lastPawSqueakAt = 0
 local lastPawCreakAt = 0
+local lastHeelsStepAt = 0
 
 local function GetNow()
     if GetTime then
@@ -89,6 +97,15 @@ local function CanPlayPawCreak()
         return false
     end
     lastPawCreakAt = now
+    return true
+end
+
+local function CanPlayHeelsStep()
+    local now = GetNow()
+    if now - lastHeelsStepAt < HEELS_STEP_COOLDOWN then
+        return false
+    end
+    lastHeelsStepAt = now
     return true
 end
 
@@ -251,6 +268,57 @@ local function HandlePawCreak(msg, senderShort)
             print("|cff88ff88CatgirlTracker:|r Paw creak too far from:", senderShort, string.format("(%.4f)", dist))
         else
             print("|cff88ff88CatgirlTracker:|r Paw creak ignored (no position):", senderShort)
+        end
+    end
+end
+
+local function ParseHeelsStep(msg)
+    local event, owner, mapID, x, y, instanceID = msg:match(
+        "^(HeelsStep%d+), owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)"
+    )
+    if not event then
+        event, owner, mapID, x, y = msg:match(
+            "^(HeelsStep%d+), owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
+        )
+    end
+    if not event or not owner then return nil end
+    return event, owner:match("^[^%-]+"), ParseNumber(mapID), ParseNumber(x), ParseNumber(y), ParseNumber(instanceID)
+end
+
+local function IsHeelsStepClose(mapID, x, y, instanceID)
+    local ownerMapID, ownerX, ownerY = GetPlayerMapCoords()
+    if ownerMapID and ownerX and ownerY and mapID and x and y and ownerMapID == mapID then
+        local dx = ownerX - x
+        local dy = ownerY - y
+        local dist = math.sqrt(dx * dx + dy * dy)
+        return dist <= HEELS_STEP_CLOSE_RANGE, dist
+    end
+    if IsSameInstance(instanceID) then
+        return true, nil
+    end
+    return false, nil
+end
+
+local function HandleHeelsStep(msg, senderShort)
+    local event, ownerShort, mapID, x, y, instanceID = ParseHeelsStep(msg)
+    if not event or not ownerShort or ownerShort:lower() ~= myShortName:lower() then
+        return
+    end
+    local close, dist = IsHeelsStepClose(mapID, x, y, instanceID)
+    if close then
+        if not CanPlayHeelsStep() then
+            return
+        end
+        local sound = HEELS_STEP_SOUNDS[event]
+        if sound then
+            PlaySoundFile(sound, "Master")
+            print("|cff88ff88CatgirlTracker:|r Heel steps heard from:", senderShort)
+        end
+    else
+        if dist then
+            print("|cff88ff88CatgirlTracker:|r Heel steps too far from:", senderShort, string.format("(%.4f)", dist))
+        else
+            print("|cff88ff88CatgirlTracker:|r Heel steps ignored (no position):", senderShort)
         end
     end
 end
@@ -432,6 +500,10 @@ f:SetScript("OnEvent", function(_, event, prefix, msg, channel, sender)
     end
     if msg and msg:match("^PawCreak,") then
         HandlePawCreak(msg, shortName)
+        return
+    end
+    if msg and msg:match("^HeelsStep%d+,") then
+        HandleHeelsStep(msg, shortName)
         return
     end
 

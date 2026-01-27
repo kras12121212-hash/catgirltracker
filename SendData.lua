@@ -374,7 +374,7 @@ C_Timer.NewTicker(3, function()
     end
 
     if not sentSomething and logTableBehavior then
-        local bindKeys = { "gag", "earmuffs", "blindfold", "mittens", "bell", "tailbell" }
+        local bindKeys = { "gag", "earmuffs", "blindfold", "mittens", "heels", "bell", "tailbell" }
         for _, bind in ipairs(bindKeys) do
             local entry = logTableBehavior[bind]
             if entry and entry.unlockAt and HasPendingRecipients(entry, recipients) then

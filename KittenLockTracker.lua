@@ -44,6 +44,10 @@ local function bindUnlockedMessage(bind)
         RemovePawMittensBySystem()
         CCT_AutoPrint("|cffffff00[System]:|r The paw mittens lock timer ended.")
 
+    elseif bind == "heels" then
+        RemoveHeelsBySystem()
+        CCT_AutoPrint("|cffffff00[System]:|r The heel lock timer ended.")
+
     else
         CCT_AutoPrint("|cffff0000[System]:|r Unknown bind '" .. bind .. "' unlocked.")
     end
@@ -93,6 +97,7 @@ local function parseBindWhisper(msg)
     elseif msg:find("earmuffs to unlock") then bindType = "earmuffs"
     elseif msg:find("blindfold to unlock") then bindType = "blindfold"
     elseif msg:find("paw mittens to unlock") then bindType = "mittens"
+    elseif msg:find("heels to unlock") then bindType = "heels"
     elseif msg:find("tail bell to unlock") then bindType = "tailbell"
     elseif msg:find("bell to unlock") then bindType = "bell"
     end
