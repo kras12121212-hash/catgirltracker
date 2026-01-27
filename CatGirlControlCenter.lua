@@ -1104,6 +1104,62 @@ local function ShowControlPanel(kitten)
         end
     )
 
+    y = y - 10
+    local mapRangeLabel = settingsContent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    mapRangeLabel:SetPoint("TOPLEFT", 0, y)
+    mapRangeLabel:SetText("Map history day")
+    y = y - 18
+
+    local mapRangeValue = settingsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    mapRangeValue:SetPoint("TOPLEFT", 0, y)
+    mapRangeValue:SetText("Today")
+
+    local mapRangeSlider = CreateFrame("Slider", "CGCCMapHistorySlider", settingsContent, "OptionsSliderTemplate")
+    mapRangeSlider:SetPoint("TOPLEFT", mapRangeValue, "BOTTOMLEFT", 0, -8)
+    mapRangeSlider:SetMinMaxValues(0, 30)
+    mapRangeSlider:SetValueStep(1)
+    mapRangeSlider:SetObeyStepOnDrag(true)
+    mapRangeSlider:SetWidth(200)
+
+    if mapRangeSlider.Low then mapRangeSlider.Low:SetText("0") end
+    if mapRangeSlider.High then mapRangeSlider.High:SetText("30") end
+
+    local function SetMapRangeText(value)
+        local offset = tonumber(value) or 0
+        if offset < 0 then offset = 0 end
+        if offset > 30 then offset = 30 end
+        local dayTime = time() - (offset * 24 * 60 * 60)
+        local label = date("%Y-%m-%d", dayTime)
+        if offset == 0 then
+            mapRangeValue:SetText(label .. " (Today)")
+        else
+            mapRangeValue:SetText(label .. " (" .. tostring(offset) .. " days ago)")
+        end
+    end
+
+    local function GetMapHistoryOffset()
+        CatgirlSettingsDB = CatgirlSettingsDB or {}
+        local val = tonumber(CatgirlSettingsDB.mapHistoryOffsetDays)
+        if not val or val < 0 then
+            val = 0
+        elseif val > 30 then
+            val = 30
+        end
+        return val
+    end
+
+    mapRangeSlider:SetScript("OnValueChanged", function(self, value)
+        local days = math.floor((tonumber(value) or 0) + 0.5)
+        CatgirlSettingsDB = CatgirlSettingsDB or {}
+        CatgirlSettingsDB.mapHistoryOffsetDays = days
+        SetMapRangeText(days)
+    end)
+
+    local initialDays = GetMapHistoryOffset()
+    mapRangeSlider:SetValue(initialDays)
+    SetMapRangeText(initialDays)
+
+    y = y - 70
     y = y - 6
     y = AddHeader(settingsContent, y, "Maid Tasks")
 

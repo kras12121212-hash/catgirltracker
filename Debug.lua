@@ -20,6 +20,10 @@ if CatgirlSettingsDB.debugEnabled == nil then
     CatgirlSettingsDB.debugEnabled = false
 end
 
+if CatgirlSettingsDB.mapHistoryOffsetDays == nil then
+    CatgirlSettingsDB.mapHistoryOffsetDays = 0
+end
+
 CCT_DebugEnabled = CatgirlSettingsDB.debugEnabled
 
 function CCT_IsDebugEnabled()

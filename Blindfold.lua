@@ -71,7 +71,7 @@ local function playMaskAnimation(prefix, count, forward, onComplete)
     local index = forward and 1 or count
 
     local function step()
-        local path = string.format("Interface\\AddOns\\CatgirlTracker\\%s%d.tga", prefix, index)
+        local path = string.format("Interface\\AddOns\\CatgirlTracker\\Textures\\masks\\%s%d.tga", prefix, index)
         texture:SetTexture(path)
 
         if forward then

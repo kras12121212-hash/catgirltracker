@@ -9,7 +9,7 @@ CatgirlBehaviorDB.BehaviorLog = CatgirlBehaviorDB.BehaviorLog or {}
 CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyname] or {}
 
 local TRACK_INTERVAL = 10
-local MAX_AGE_SECONDS = 7 * 24 * 60 * 60
+local MAX_AGE_SECONDS = 31 * 24 * 60 * 60
 local trackingActive = false
 local locationTicker = nil
 local lastNoPositionLog = 0
