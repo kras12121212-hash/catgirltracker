@@ -125,6 +125,35 @@ local function FormatHeelsState(state)
     return map[state] or tostring(state)
 end
 
+local function FormatSkillLevel(level)
+    if not level then return "Unknown" end
+    return "Level " .. tostring(level)
+end
+
+local function GetHeelsSkillLevels(log)
+    local levels = { maid = nil, high = nil, ballet = nil }
+    if log and type(log.HeelsSkillLevels) == "table" then
+        levels.maid = log.HeelsSkillLevels.maid
+        levels.high = log.HeelsSkillLevels.high
+        levels.ballet = log.HeelsSkillLevels.ballet
+    end
+    if not (levels.maid and levels.high and levels.ballet) then
+        for i = #log, 1, -1 do
+            local entry = log[i]
+            if entry and entry.event == "HeelsSkill" and type(entry.state) == "string" then
+                local kind, lvl = entry.state:match("^(%a+):(%d+)$")
+                if kind and lvl and levels[kind] == nil then
+                    levels[kind] = tonumber(lvl)
+                    if levels.maid and levels.high and levels.ballet then
+                        break
+                    end
+                end
+            end
+        end
+    end
+    return levels
+end
+
 local function FormatBooleanState(value)
     if value == nil then return "Unknown" end
     return value and "On" or "Off"
@@ -264,6 +293,13 @@ local function BuildStatsLines(kittenName)
         table.insert(lines, "Last Location Sync: None")
         table.insert(lines, "Distance to kitten: Unknown")
     end
+
+    local heelsSkills = GetHeelsSkillLevels(log)
+    table.insert(lines, "")
+    table.insert(lines, "Kitten Skills:")
+    table.insert(lines, "Maid heels: " .. FormatSkillLevel(heelsSkills.maid))
+    table.insert(lines, "High heels: " .. FormatSkillLevel(heelsSkills.high))
+    table.insert(lines, "Ballet boots: " .. FormatSkillLevel(heelsSkills.ballet))
 
     local timerLines = {}
     local timerKeys = {

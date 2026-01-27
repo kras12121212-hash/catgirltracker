@@ -23,11 +23,24 @@ local HEELS_WARNING_CHECK = 0.1
 local HEELS_WARNING_COOLDOWN = 1.2
 local HEELS_SAMPLE_COUNT = 12
 
-local HEELS_ALLOWED_SPEED = {
+local HEELS_BASE_SPEED = {
     [HEELS_TYPE_MAID] = 3.5,
     [HEELS_TYPE_HIGH] = 2.0,
-    [HEELS_TYPE_BALLET] = 1.0,
+    [HEELS_TYPE_BALLET] = 1.4,
 }
+local HEELS_FAILURE_TEXTURES = {
+    [HEELS_TYPE_MAID] = "Interface\\AddOns\\CatgirlTracker\\Textures\\heels\\maid-heels.tga",
+    [HEELS_TYPE_HIGH] = "Interface\\AddOns\\CatgirlTracker\\Textures\\heels\\high-heels.tga",
+    [HEELS_TYPE_BALLET] = "Interface\\AddOns\\CatgirlTracker\\Textures\\heels\\ballet-boots.tga",
+}
+local HEELS_SPEED_PER_LEVEL = 0.05
+local HEELS_MAX_LEVEL = 20
+local HEELS_LEVEL_BASE_DURATION = 180
+local HEELS_LEVEL_STEP_SECONDS = 60
+local HEELS_PROGRESS_CHUNK_SECONDS = 5
+local HEELS_PROGRESS_WINDOW = 30
+local HEELS_PROGRESS_MIN_RATIO = 0.45
+local HEELS_PROGRESS_RESET_RATIO = 1.0
 
 local heelsLocked = false
 local activeHeelsType = nil
@@ -38,6 +51,13 @@ local heelsWarningActive = false
 local speedSamples = {}
 local speedSum = 0
 local speedBar = nil
+local progressBar = nil
+local heelsSkillLevels = nil
+local skillProgress = {}
+local skillWindow = {}
+local skillWindowTrue = {}
+local skillWalkAccum = {}
+local failureOverlay = nil
 
 -- Behavior DB setup
 CatgirlBehaviorDB = CatgirlBehaviorDB or {}
@@ -47,6 +67,72 @@ CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyna
 local function GetBehaviorLog()
     CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyname] or {}
     return CatgirlBehaviorDB.BehaviorLog[kittyname]
+end
+
+local function InitializeHeelsSkills()
+    local log = GetBehaviorLog()
+    if type(log.HeelsSkillLevels) ~= "table" then
+        log.HeelsSkillLevels = {}
+    end
+    if type(log.HeelsSkillLevelsSent) ~= "table" then
+        log.HeelsSkillLevelsSent = {}
+    end
+    heelsSkillLevels = log.HeelsSkillLevels
+
+    local types = { HEELS_TYPE_MAID, HEELS_TYPE_HIGH, HEELS_TYPE_BALLET }
+    for _, kind in ipairs(types) do
+        local level = tonumber(heelsSkillLevels[kind]) or 1
+        if level < 1 then level = 1 end
+        if level > HEELS_MAX_LEVEL then level = HEELS_MAX_LEVEL end
+        heelsSkillLevels[kind] = level
+        skillProgress[kind] = 0
+        skillWindow[kind] = {}
+        skillWindowTrue[kind] = 0
+        skillWalkAccum[kind] = 0
+    end
+end
+
+local function QueueSkillLevelSyncIfNeeded()
+    if not heelsSkillLevels then
+        InitializeHeelsSkills()
+    end
+    local log = GetBehaviorLog()
+    log.HeelsSkillLevelsSent = log.HeelsSkillLevelsSent or {}
+    local sent = log.HeelsSkillLevelsSent
+    local types = { HEELS_TYPE_MAID, HEELS_TYPE_HIGH, HEELS_TYPE_BALLET }
+    for _, kind in ipairs(types) do
+        local level = tonumber(heelsSkillLevels[kind]) or 1
+        if sent[kind] ~= level then
+            table.insert(log, {
+                timestamp = date("%Y-%m-%d %H:%M"),
+                unixtime = time(),
+                event = "HeelsSkill",
+                state = string.format("%s:%d", kind, level),
+                synced = 0,
+            })
+            sent[kind] = level
+        end
+    end
+end
+
+local function GetSkillLevel(kind)
+    if not heelsSkillLevels then
+        InitializeHeelsSkills()
+    end
+    return tonumber(heelsSkillLevels[kind]) or 1
+end
+
+local function SetSkillLevel(kind, level)
+    if not heelsSkillLevels then
+        InitializeHeelsSkills()
+    end
+    local newLevel = tonumber(level) or 1
+    if newLevel < 1 then newLevel = 1 end
+    if newLevel > HEELS_MAX_LEVEL then newLevel = HEELS_MAX_LEVEL end
+    if heelsSkillLevels[kind] ~= newLevel then
+        heelsSkillLevels[kind] = newLevel
+        QueueSkillLevelSyncIfNeeded()
+    end
 end
 
 local function AutoPrint(...)
@@ -241,11 +327,52 @@ local function GetAverageSpeed()
     return speedSum / #speedSamples
 end
 
-local function GetAllowedSpeed()
-    if not activeHeelsType then
+local function GetAllowedSpeed(kind)
+    local heelsType = kind or activeHeelsType
+    if not heelsType then
         return nil
     end
-    return HEELS_ALLOWED_SPEED[activeHeelsType]
+    local base = HEELS_BASE_SPEED[heelsType]
+    if not base then
+        return nil
+    end
+    local level = GetSkillLevel(heelsType)
+    return base + (level - 1) * HEELS_SPEED_PER_LEVEL
+end
+
+local function GetLevelRequirement(level)
+    return HEELS_LEVEL_BASE_DURATION + (level * HEELS_LEVEL_STEP_SECONDS)
+end
+
+failureOverlay = CreateFrame("Frame", "CatgirlHeelsFailureOverlay", UIParent)
+failureOverlay:SetAllPoints(UIParent)
+failureOverlay:SetFrameStrata("FULLSCREEN_DIALOG")
+failureOverlay:EnableMouse(false)
+failureOverlay:Hide()
+
+failureOverlay.texture = failureOverlay:CreateTexture(nil, "OVERLAY")
+failureOverlay.texture:SetAllPoints()
+failureOverlay.texture:SetAlpha(1)
+failureOverlay.expireAt = nil
+
+local function ShowFailureOverlay(kind)
+    if not failureOverlay then
+        return
+    end
+    local path = kind and HEELS_FAILURE_TEXTURES[kind]
+    if not path then
+        return
+    end
+    failureOverlay.texture:SetTexture(path)
+    failureOverlay:Show()
+    failureOverlay.expireAt = GetNow() + 5
+end
+
+local function HideFailureOverlay()
+    if failureOverlay then
+        failureOverlay.expireAt = nil
+        failureOverlay:Hide()
+    end
 end
 
 speedBar = CreateFrame("StatusBar", "CatgirlHeelsSpeedBar", UIParent, "BackdropTemplate")
@@ -268,7 +395,29 @@ speedBar:Hide()
 
 speedBar.text = speedBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 speedBar.text:SetPoint("CENTER")
-speedBar.text:SetText("Heels speed 0.00 / 0.00")
+speedBar.text:SetText("Balance bar 0.00 / 0.00")
+
+progressBar = CreateFrame("StatusBar", "CatgirlHeelsProgressBar", UIParent, "BackdropTemplate")
+progressBar:SetSize(240, 14)
+progressBar:SetPoint("TOP", speedBar, "BOTTOM", 0, -6)
+progressBar:SetStatusBarTexture("Interface\\TARGETINGFRAME\\UI-StatusBar")
+progressBar:SetMinMaxValues(0, 1)
+progressBar:SetValue(0)
+progressBar:SetStatusBarColor(0.4, 0.6, 1)
+progressBar:SetBackdrop({
+    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true,
+    tileSize = 16,
+    edgeSize = 8,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
+})
+progressBar:SetBackdropColor(0, 0, 0, 0.6)
+progressBar:Hide()
+
+progressBar.text = progressBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+progressBar.text:SetPoint("CENTER")
+progressBar.text:SetText("Level 1: 0 / 0s")
 
 local function UpdateSpeedBar(avgSpeed, allowedSpeed)
     if not speedBar then
@@ -296,8 +445,94 @@ local function UpdateSpeedBar(avgSpeed, allowedSpeed)
     end
 
     if speedBar.text then
-        speedBar.text:SetText(string.format("Heels speed %.2f / %.2f", avgSpeed, allowedSpeed))
+        speedBar.text:SetText(string.format("Balance bar %.2f / %.2f", avgSpeed, allowedSpeed))
     end
+end
+
+local function UpdateProgressBar(progressSeconds, requiredSeconds, level)
+    if not progressBar then
+        return
+    end
+    if not heelsLocked or not activeHeelsType or not requiredSeconds then
+        progressBar:Hide()
+        return
+    end
+
+    progressBar:Show()
+    progressBar:SetMinMaxValues(0, requiredSeconds)
+    local value = progressSeconds or 0
+    if value < 0 then value = 0 end
+    if value > requiredSeconds then value = requiredSeconds end
+    progressBar:SetValue(value)
+
+    if progressBar.text then
+        progressBar.text:SetText(string.format("Level %d: %.0f / %.0fs", level or 1, value, requiredSeconds))
+    end
+end
+
+local function ResetSkillWindow(kind)
+    skillWindow[kind] = {}
+    skillWindowTrue[kind] = 0
+    skillWalkAccum[kind] = 0
+end
+
+local function ResetSkillProgress(kind)
+    skillProgress[kind] = 0
+    ResetSkillWindow(kind)
+end
+
+local function UpdateSkillProgress(avgSpeed, allowedSpeed, currentSpeed)
+    if not activeHeelsType or not allowedSpeed then
+        return
+    end
+    local kind = activeHeelsType
+    if skillProgress[kind] == nil then
+        skillProgress[kind] = 0
+    end
+    if not skillWindow[kind] then
+        ResetSkillWindow(kind)
+    end
+
+    local aboveRatio = avgSpeed >= (allowedSpeed * HEELS_PROGRESS_MIN_RATIO)
+    table.insert(skillWindow[kind], aboveRatio)
+    if aboveRatio then
+        skillWindowTrue[kind] = (skillWindowTrue[kind] or 0) + 1
+    end
+    if #skillWindow[kind] > HEELS_PROGRESS_WINDOW then
+        local removed = table.remove(skillWindow[kind], 1)
+        if removed then
+            skillWindowTrue[kind] = (skillWindowTrue[kind] or 0) - 1
+        end
+    end
+
+    if avgSpeed > (allowedSpeed * HEELS_PROGRESS_RESET_RATIO) then
+        ResetSkillProgress(kind)
+        local level = GetSkillLevel(kind)
+        UpdateProgressBar(0, GetLevelRequirement(level), level)
+        return
+    end
+
+    local isMoving = (currentSpeed and currentSpeed > 0) or (IsPlayerMoving and IsPlayerMoving())
+    if isMoving then
+        skillWalkAccum[kind] = (skillWalkAccum[kind] or 0) + HEELS_WARNING_CHECK
+        while skillWalkAccum[kind] >= HEELS_PROGRESS_CHUNK_SECONDS do
+            if #skillWindow[kind] >= HEELS_PROGRESS_WINDOW and skillWindowTrue[kind] == HEELS_PROGRESS_WINDOW then
+                skillProgress[kind] = (skillProgress[kind] or 0) + HEELS_PROGRESS_CHUNK_SECONDS
+            end
+            skillWalkAccum[kind] = skillWalkAccum[kind] - HEELS_PROGRESS_CHUNK_SECONDS
+        end
+    end
+
+    local level = GetSkillLevel(kind)
+    local required = GetLevelRequirement(level)
+    if level < HEELS_MAX_LEVEL and (skillProgress[kind] or 0) >= required then
+        ResetSkillProgress(kind)
+        SetSkillLevel(kind, level + 1)
+        level = GetSkillLevel(kind)
+        required = GetLevelRequirement(level)
+    end
+
+    UpdateProgressBar(skillProgress[kind] or 0, required, level)
 end
 
 local function ShowHeelsWarning()
@@ -331,7 +566,13 @@ local function HeelsWarningTick()
         ClearHeelsWarning()
         ResetSpeedSamples()
         UpdateSpeedBar(0, nil)
+        UpdateProgressBar(0, nil)
+        HideFailureOverlay()
         return
+    end
+
+    if failureOverlay and failureOverlay.expireAt and GetNow() >= failureOverlay.expireAt then
+        HideFailureOverlay()
     end
 
     local speed = 0
@@ -342,9 +583,11 @@ local function HeelsWarningTick()
     local avgSpeed = GetAverageSpeed()
     local allowedSpeed = GetAllowedSpeed()
     UpdateSpeedBar(avgSpeed, allowedSpeed)
+    UpdateSkillProgress(avgSpeed, allowedSpeed, speed)
 
     if allowedSpeed and avgSpeed > allowedSpeed then
         ShowHeelsWarning()
+        ShowFailureOverlay(activeHeelsType)
     else
         ClearHeelsWarning()
     end
@@ -396,6 +639,7 @@ local function ApplyHeels(sender, heelsType)
     StartHeelsSoundLoop()
     StartHeelsWarningLoop()
     ResetSpeedSamples()
+    ResetSkillWindow(heelsType)
     LogHeelsState(heelsType)
     UpdateWalkModeForHeels()
 
@@ -415,12 +659,18 @@ local function ApplyHeels(sender, heelsType)
 end
 
 local function RemoveHeels(sender, isAuto)
+    local prevType = activeHeelsType
     heelsLocked = false
     activeHeelsType = nil
     StopHeelsSoundLoop()
     StopHeelsWarningLoop()
     ResetSpeedSamples()
     UpdateSpeedBar(0, nil)
+    UpdateProgressBar(0, nil)
+    HideFailureOverlay()
+    if prevType then
+        ResetSkillWindow(prevType)
+    end
     LogHeelsState("removed")
     UpdateWalkModeForHeels()
 
@@ -456,6 +706,7 @@ local function RestoreHeelsState()
                 StartHeelsSoundLoop()
                 StartHeelsWarningLoop()
                 ResetSpeedSamples()
+                ResetSkillWindow(entry.state)
                 UpdateWalkModeForHeels()
             else
                 heelsLocked = false
@@ -464,6 +715,8 @@ local function RestoreHeelsState()
                 StopHeelsWarningLoop()
                 ResetSpeedSamples()
                 UpdateSpeedBar(0, nil)
+                UpdateProgressBar(0, nil)
+                HideFailureOverlay()
                 UpdateWalkModeForHeels()
             end
             return
@@ -475,6 +728,8 @@ local function RestoreHeelsState()
     StopHeelsWarningLoop()
     ResetSpeedSamples()
     UpdateSpeedBar(0, nil)
+    UpdateProgressBar(0, nil)
+    HideFailureOverlay()
     UpdateWalkModeForHeels()
 end
 
@@ -484,6 +739,8 @@ f:RegisterEvent("CHAT_MSG_WHISPER")
 
 f:SetScript("OnEvent", function(_, event, msg, sender)
     if event == "PLAYER_LOGIN" then
+        InitializeHeelsSkills()
+        QueueSkillLevelSyncIfNeeded()
         RestoreHeelsState()
         return
     end

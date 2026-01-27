@@ -442,15 +442,25 @@ local function parseAndStoreSlaveData(msg, sender)
             "timestamp:([^,]+), unixtime:(%d+), event:([^,]+), state:([^,]+), Gagstate:([^,]+), BlindfoldState:([^,]+)"
         )
         if timestamp and unixtime and event then
+            local parsedState = state ~= "nil" and parseStateValue(state) or nil
             table.insert(CatgirlBehaviorDB.BehaviorLog[slaveName], {
                 timestamp = timestamp,
                 unixtime = tonumber(unixtime),
                 event = event,
-                state = state ~= "nil" and parseStateValue(state) or nil,
+                state = parsedState,
                 Gagstate = gag ~= "nil" and gag or nil,
                 BlindfoldState = blind ~= "nil" and blind or nil,
                 synced = 1
             })
+
+            if event == "HeelsSkill" and type(parsedState) == "string" then
+                local kind, level = parsedState:match("^(%a+):(%d+)$")
+                if kind and level then
+                    CatgirlBehaviorDB.BehaviorLog[slaveName].HeelsSkillLevels =
+                        CatgirlBehaviorDB.BehaviorLog[slaveName].HeelsSkillLevels or {}
+                    CatgirlBehaviorDB.BehaviorLog[slaveName].HeelsSkillLevels[kind] = tonumber(level)
+                end
+            end
         end
     elseif logType == "BindTimer" then
         local bind, unlockAt, duration = msg:match("bind:([^,]+), unlockAt:(%d+), durationMinutes:(%d+)")
