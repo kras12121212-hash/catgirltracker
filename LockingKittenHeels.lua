@@ -19,6 +19,11 @@ local HEELS_SOUND_PREFIX = {
 }
 
 local HEEL_STEP_INTERVAL = 0.8
+local HEELS_SOUND_INTERVALS = {
+    [HEELS_TYPE_MAID] = 7.0,
+    [HEELS_TYPE_HIGH] = 7.0,
+    [HEELS_TYPE_BALLET] = 7.0,
+}
 local HEELS_WARNING_MESSAGE = "Kitten is Wearing High Heels you Cant Run or you will Fall !\n(Use Slow walk)"
 local HEELS_WARNING_CHECK = 0.1
 local HEELS_WARNING_COOLDOWN = 1.2
@@ -46,6 +51,9 @@ local HEELS_PROGRESS_RESET_RATIO = 1.0
 local heelsLocked = false
 local activeHeelsType = nil
 local heelsSoundTicker = nil
+local heelsLoopHandle = nil
+local heelsLoopActive = false
+local heelsMoving = false
 local heelsWarningTicker = nil
 local lastWarningAt = 0
 local heelsWarningActive = false
@@ -267,37 +275,61 @@ local function SendHeelSound(prefix)
     C_ChatInfo.SendAddonMessage(addonPrefix, msg, "GUILD")
 end
 
-local function TriggerHeelStep()
+local function SendHeelsLoopEvent(action, heelsType)
+    if not action then return end
+    local kind = heelsType or activeHeelsType
+    if not kind then return end
+    local prefix = action == "Start" and "HeelsLoopStart" or "HeelsLoopStop"
+    local msgPrefix = string.format("%s, type:%s", prefix, kind)
+    SendHeelSound(msgPrefix)
+end
+
+local function PlayHeelsLoopSound()
     if not heelsLocked or not activeHeelsType then
         return
     end
-    if not IsPlayerMoving or not IsPlayerMoving() then
+    local sound = HEELS_SOUND_FILES[activeHeelsType]
+    if not sound then
         return
     end
-
-    local sound = HEELS_SOUND_FILES[activeHeelsType]
-    if sound then
-        PlaySoundFile(sound, "Master")
+    if type(heelsLoopHandle) == "number" and StopSound then
+        StopSound(heelsLoopHandle)
     end
-
-    local prefix = HEELS_SOUND_PREFIX[activeHeelsType]
-    if prefix then
-        SendHeelSound(prefix)
+    local a, b = PlaySoundFile(sound, "Master")
+    if type(a) == "number" then
+        heelsLoopHandle = a
+    elseif type(b) == "number" then
+        heelsLoopHandle = b
+    else
+        heelsLoopHandle = nil
     end
 end
 
 local function StartHeelsSoundLoop()
-    if heelsSoundTicker then
+    if heelsLoopActive then
         return
     end
-    heelsSoundTicker = C_Timer.NewTicker(HEEL_STEP_INTERVAL, TriggerHeelStep)
+    heelsLoopActive = true
+    PlayHeelsLoopSound()
+    local interval = HEELS_SOUND_INTERVALS[activeHeelsType] or HEEL_STEP_INTERVAL
+    heelsSoundTicker = C_Timer.NewTicker(interval, function()
+        if not heelsLoopActive or not heelsLocked or not activeHeelsType then
+            return
+        end
+        PlayHeelsLoopSound()
+    end)
 end
 
 local function StopHeelsSoundLoop()
+    heelsLoopActive = false
     if heelsSoundTicker then
         heelsSoundTicker:Cancel()
         heelsSoundTicker = nil
     end
+    if type(heelsLoopHandle) == "number" and StopSound then
+        StopSound(heelsLoopHandle)
+    end
+    heelsLoopHandle = nil
 end
 
 local function GetNow()
@@ -569,6 +601,11 @@ local function HeelsWarningTick()
         UpdateSpeedBar(0, nil)
         UpdateProgressBar(0, nil)
         HideFailureOverlay()
+        if heelsMoving then
+            SendHeelsLoopEvent("Stop", activeHeelsType)
+            heelsMoving = false
+        end
+        StopHeelsSoundLoop()
         return
     end
 
@@ -591,6 +628,17 @@ local function HeelsWarningTick()
         ShowFailureOverlay(activeHeelsType)
     else
         ClearHeelsWarning()
+    end
+
+    local isMoving = IsPlayerMoving and IsPlayerMoving()
+    if isMoving and not heelsMoving then
+        heelsMoving = true
+        StartHeelsSoundLoop()
+        SendHeelsLoopEvent("Start", activeHeelsType)
+    elseif not isMoving and heelsMoving then
+        heelsMoving = false
+        StopHeelsSoundLoop()
+        SendHeelsLoopEvent("Stop", activeHeelsType)
     end
 end
 
@@ -637,9 +685,10 @@ end
 local function ApplyHeels(sender, heelsType)
     heelsLocked = true
     activeHeelsType = heelsType
-    StartHeelsSoundLoop()
     StartHeelsWarningLoop()
     ResetSpeedSamples()
+    heelsMoving = false
+    StopHeelsSoundLoop()
     ResetSkillWindow(heelsType)
     LogHeelsState(heelsType)
     UpdateWalkModeForHeels()
@@ -664,6 +713,10 @@ local function RemoveHeels(sender, isAuto)
     heelsLocked = false
     activeHeelsType = nil
     StopHeelsSoundLoop()
+    if heelsMoving then
+        SendHeelsLoopEvent("Stop", prevType)
+    end
+    heelsMoving = false
     StopHeelsWarningLoop()
     ResetSpeedSamples()
     UpdateSpeedBar(0, nil)
@@ -696,6 +749,7 @@ _G.RemoveHeelsBySystem = RemoveHeelsBySystem
 
 local function RestoreHeelsState()
     local log = GetBehaviorLog()
+    local prevType = activeHeelsType
     for i = #log, 1, -1 do
         local entry = log[i]
         if entry.event == "KittenHeels" then
@@ -704,15 +758,20 @@ local function RestoreHeelsState()
                 or entry.state == HEELS_TYPE_BALLET then
                 heelsLocked = true
                 activeHeelsType = entry.state
-                StartHeelsSoundLoop()
                 StartHeelsWarningLoop()
                 ResetSpeedSamples()
+                heelsMoving = false
+                StopHeelsSoundLoop()
                 ResetSkillWindow(entry.state)
                 UpdateWalkModeForHeels()
             else
                 heelsLocked = false
                 activeHeelsType = nil
                 StopHeelsSoundLoop()
+                if heelsMoving then
+                    SendHeelsLoopEvent("Stop", prevType)
+                end
+                heelsMoving = false
                 StopHeelsWarningLoop()
                 ResetSpeedSamples()
                 UpdateSpeedBar(0, nil)
@@ -726,6 +785,10 @@ local function RestoreHeelsState()
     heelsLocked = false
     activeHeelsType = nil
     StopHeelsSoundLoop()
+    if heelsMoving then
+        SendHeelsLoopEvent("Stop", prevType)
+    end
+    heelsMoving = false
     StopHeelsWarningLoop()
     ResetSpeedSamples()
     UpdateSpeedBar(0, nil)

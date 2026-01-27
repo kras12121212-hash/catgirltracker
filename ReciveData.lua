@@ -29,12 +29,16 @@ local PAW_CREAK_SOUNDS = {
     "Interface\\AddOns\\CatgirlTracker\\Sounds\\creak-3.mp3",
 }
 local PAW_CREAK_COOLDOWN = 2
-local HEELS_STEP_SOUNDS = {
-    HeelsStep3 = "Interface\\AddOns\\CatgirlTracker\\Sounds\\HighHeels3.wav",
-    HeelsStep8 = "Interface\\AddOns\\CatgirlTracker\\Sounds\\HighHeels8.wav",
-    HeelsStep12 = "Interface\\AddOns\\CatgirlTracker\\Sounds\\HighHeels12.wav",
+local HEELS_LOOP_SOUNDS = {
+    maid = "Interface\\AddOns\\CatgirlTracker\\Sounds\\HighHeels3.wav",
+    high = "Interface\\AddOns\\CatgirlTracker\\Sounds\\HighHeels8.wav",
+    ballet = "Interface\\AddOns\\CatgirlTracker\\Sounds\\HighHeels12.wav",
 }
-local HEELS_STEP_COOLDOWN = 0.8
+local HEELS_LOOP_INTERVALS = {
+    maid = 7.0,
+    high = 7.0,
+    ballet = 7.0,
+}
 local isMaster = (myShortName:lower() == masterName:lower()) -- ← controls master mode
 
 local function RequestGuildRoster()
@@ -73,7 +77,6 @@ end
 
 local lastPawSqueakAt = 0
 local lastPawCreakAt = 0
-local lastHeelsStepAt = 0
 
 local function GetNow()
     if GetTime then
@@ -100,14 +103,6 @@ local function CanPlayPawCreak()
     return true
 end
 
-local function CanPlayHeelsStep()
-    local now = GetNow()
-    if now - lastHeelsStepAt < HEELS_STEP_COOLDOWN then
-        return false
-    end
-    lastHeelsStepAt = now
-    return true
-end
 
 local function GetRandomPawSqueakSound()
     return PAW_SQUEAK_SOUNDS[math.random(#PAW_SQUEAK_SOUNDS)]
@@ -272,20 +267,30 @@ local function HandlePawCreak(msg, senderShort)
     end
 end
 
-local function ParseHeelsStep(msg)
-    local event, owner, mapID, x, y, instanceID = msg:match(
-        "^(HeelsStep%d+), owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)"
+local function ParseHeelsLoop(msg)
+    local action, heelType, owner, mapID, x, y, instanceID = msg:match(
+        "^HeelsLoop(Start|Stop), type:([^,]+), owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)"
     )
-    if not event then
-        event, owner, mapID, x, y = msg:match(
-            "^(HeelsStep%d+), owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
+    if not action then
+        action, heelType, owner, mapID, x, y = msg:match(
+            "^HeelsLoop(Start|Stop), type:([^,]+), owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
         )
     end
-    if not event or not owner then return nil end
-    return event, owner:match("^[^%-]+"), ParseNumber(mapID), ParseNumber(x), ParseNumber(y), ParseNumber(instanceID)
+    if not action then
+        action, owner, heelType, mapID, x, y, instanceID = msg:match(
+            "^HeelsLoop(Start|Stop), owner:([^,]+), type:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)"
+        )
+    end
+    if not action then
+        action, owner, heelType, mapID, x, y = msg:match(
+            "^HeelsLoop(Start|Stop), owner:([^,]+), type:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
+        )
+    end
+    if not action or not owner then return nil end
+    return action, owner:match("^[^%-]+"), heelType, ParseNumber(mapID), ParseNumber(x), ParseNumber(y), ParseNumber(instanceID)
 end
 
-local function IsHeelsStepClose(mapID, x, y, instanceID)
+local function IsHeelsLoopClose(mapID, x, y, instanceID)
     local ownerMapID, ownerX, ownerY = GetPlayerMapCoords()
     if ownerMapID and ownerX and ownerY and mapID and x and y and ownerMapID == mapID then
         local dx = ownerX - x
@@ -299,28 +304,79 @@ local function IsHeelsStepClose(mapID, x, y, instanceID)
     return false, nil
 end
 
-local function HandleHeelsStep(msg, senderShort)
-    local event, ownerShort, mapID, x, y, instanceID = ParseHeelsStep(msg)
-    if not event or not ownerShort or ownerShort:lower() ~= myShortName:lower() then
+local heelsLoopTicker = nil
+local heelsLoopHandle = nil
+local heelsLoopActive = false
+local heelsLoopType = nil
+
+local function StopHeelsLoopSound()
+    if type(heelsLoopHandle) == "number" and StopSound then
+        StopSound(heelsLoopHandle)
+    end
+    heelsLoopHandle = nil
+end
+
+local function PlayHeelsLoopSound()
+    if not heelsLoopType then
         return
     end
-    local close, dist = IsHeelsStepClose(mapID, x, y, instanceID)
-    if close then
-        if not CanPlayHeelsStep() then
+    local sound = HEELS_LOOP_SOUNDS[heelsLoopType]
+    if not sound then
+        return
+    end
+    StopHeelsLoopSound()
+    local a, b = PlaySoundFile(sound, "Master")
+    if type(a) == "number" then
+        heelsLoopHandle = a
+    elseif type(b) == "number" then
+        heelsLoopHandle = b
+    else
+        heelsLoopHandle = nil
+    end
+end
+
+local function StopHeelsLoop()
+    heelsLoopActive = false
+    if heelsLoopTicker then
+        heelsLoopTicker:Cancel()
+        heelsLoopTicker = nil
+    end
+    StopHeelsLoopSound()
+end
+
+local function StartHeelsLoop(kind)
+    heelsLoopType = kind
+    if heelsLoopTicker then
+        heelsLoopTicker:Cancel()
+        heelsLoopTicker = nil
+    end
+    heelsLoopActive = true
+    PlayHeelsLoopSound()
+    local interval = HEELS_LOOP_INTERVALS[kind] or 1.0
+    heelsLoopTicker = C_Timer.NewTicker(interval, function()
+        if not heelsLoopActive then
             return
         end
-        local sound = HEELS_STEP_SOUNDS[event]
-        if sound then
-            PlaySoundFile(sound, "Master")
+        PlayHeelsLoopSound()
+    end)
+end
+
+local function HandleHeelsLoop(msg, senderShort)
+    local action, ownerShort, heelType, mapID, x, y, instanceID = ParseHeelsLoop(msg)
+    if not action or not ownerShort or ownerShort:lower() ~= myShortName:lower() then
+        return
+    end
+
+    if action == "Start" then
+        local close = IsHeelsLoopClose(mapID, x, y, instanceID)
+        if close then
+            StartHeelsLoop(heelType)
             print("|cff88ff88CatgirlTracker:|r Heel steps heard from:", senderShort)
         end
-    else
-        if dist then
-            print("|cff88ff88CatgirlTracker:|r Heel steps too far from:", senderShort, string.format("(%.4f)", dist))
-        else
-            print("|cff88ff88CatgirlTracker:|r Heel steps ignored (no position):", senderShort)
-        end
+        return
     end
+
+    StopHeelsLoop()
 end
 
 -- Register prefix once
@@ -512,8 +568,8 @@ f:SetScript("OnEvent", function(_, event, prefix, msg, channel, sender)
         HandlePawCreak(msg, shortName)
         return
     end
-    if msg and msg:match("^HeelsStep%d+,") then
-        HandleHeelsStep(msg, shortName)
+    if msg and msg:match("^HeelsLoop") then
+        HandleHeelsLoop(msg, shortName)
         return
     end
 
