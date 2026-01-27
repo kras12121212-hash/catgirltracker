@@ -401,7 +401,59 @@ local function ShowControlPanel(kitten)
         return y - 16
     end
 
-    local function AddButton(parent, y, label, command)
+    local CGCC_TEXTURE_PATH = "Interface\\AddOns\\CatgirlTracker\\Textures\\cgcc\\"
+    local CONTROL_ICON_SIZE = 20
+    local CONTROL_PREVIEW_SIZE = 232
+    local controlIconPreview = nil
+
+    local function BuildControlIconPath(fileName)
+        if not fileName or fileName == "" then
+            return nil
+        end
+        return CGCC_TEXTURE_PATH .. fileName
+    end
+
+    local function EnsureControlIconPreview()
+        if controlIconPreview then
+            return controlIconPreview
+        end
+        controlIconPreview = CreateFrame("Frame", "CGCCControlIconPreview", UIParent, "BackdropTemplate")
+        controlIconPreview:SetSize(CONTROL_PREVIEW_SIZE + 8, CONTROL_PREVIEW_SIZE + 8)
+        controlIconPreview:SetFrameStrata("TOOLTIP")
+        controlIconPreview:SetBackdrop({
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            tile = true,
+            tileSize = 16,
+            edgeSize = 10,
+            insets = { left = 4, right = 4, top = 4, bottom = 4 },
+        })
+        controlIconPreview:SetBackdropColor(0, 0, 0, 0.9)
+        controlIconPreview.texture = controlIconPreview:CreateTexture(nil, "ARTWORK")
+        controlIconPreview.texture:SetSize(CONTROL_PREVIEW_SIZE, CONTROL_PREVIEW_SIZE)
+        controlIconPreview.texture:SetPoint("CENTER")
+        controlIconPreview:Hide()
+        return controlIconPreview
+    end
+
+    local function ShowControlIconPreview(owner, texturePath)
+        if not texturePath then return end
+        local preview = EnsureControlIconPreview()
+        preview.texture:SetTexture(texturePath)
+        preview:ClearAllPoints()
+        preview:SetPoint("LEFT", owner, "RIGHT", 115, 0)
+        preview:Show()
+    end
+
+    local function HideControlIconPreview()
+        if controlIconPreview then
+            controlIconPreview:Hide()
+        end
+    end
+
+    frame:HookScript("OnHide", HideControlIconPreview)
+
+    local function AddButton(parent, y, label, command, iconFile)
         local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
         btn:SetSize(240, 20)
         btn:SetPoint("TOPLEFT", 0, y)
@@ -409,6 +461,31 @@ local function ShowControlPanel(kitten)
         btn:SetScript("OnClick", function()
             WhisperToKitten(frame.kitten, command)
         end)
+        if iconFile then
+            local iconPath = BuildControlIconPath(iconFile)
+            btn:SetScript("OnEnter", function(self)
+                ShowControlIconPreview(self, iconPath)
+            end)
+            btn:SetScript("OnLeave", function()
+                HideControlIconPreview()
+            end)
+
+            local iconButton = CreateFrame("Button", nil, parent)
+            iconButton:SetSize(CONTROL_ICON_SIZE, CONTROL_ICON_SIZE)
+            iconButton:SetPoint("LEFT", btn, "RIGHT", 6, 0)
+            iconButton:EnableMouse(true)
+
+            local icon = iconButton:CreateTexture(nil, "ARTWORK")
+            icon:SetAllPoints(iconButton)
+            icon:SetTexture(iconPath)
+
+            iconButton:SetScript("OnEnter", function(self)
+                ShowControlIconPreview(self, iconPath)
+            end)
+            iconButton:SetScript("OnLeave", function()
+                HideControlIconPreview()
+            end)
+        end
         return y - 24
     end
 
@@ -644,7 +721,7 @@ local function ShowControlPanel(kitten)
     local leashBlock = CreateCollapsibleBlock("Leash")
     BuildCollapsibleContent(leashBlock, function(parent, y)
         y = AddHeader(parent, y, "Apply")
-        y = AddButton(parent, y, "Leash", "leash")
+        y = AddButton(parent, y, "Leash", "leash", "leash-232-with-gb_ergebnis.tga")
         y = y - 4
         y = AddHeader(parent, y, "Remove")
         y = AddButton(parent, y, "Unleash", "unleash")
@@ -655,11 +732,11 @@ local function ShowControlPanel(kitten)
     local gagBlock = CreateCollapsibleBlock("Gags and Masks")
     BuildCollapsibleContent(gagBlock, function(parent, y)
         y = AddHeader(parent, y, "Apply")
-        y = AddButton(parent, y, "Cute Kitten Mask", "Your owner gave you a cute~ Kitten Mask ~UwU~ It gives you an irresistible urge to Nya in every sentence.")
-        y = AddButton(parent, y, "Small Gag", "Your owner has fitted a small silken gag over your mouth. Speech is now garbled.")
-        y = AddButton(parent, y, "Heavy Gag", "Your owner has secured a heavy gag in place. You can no longer speak.")
-        y = AddButton(parent, y, "Kitty Mask With Gag!", "Your owner put a gag and a Kitten Mask on you! You must have been a really naughty cat!")
-        y = AddButton(parent, y, "Inflatable Gag", "Your owner fits an inflatable gag over your mouth.")
+        y = AddButton(parent, y, "Cute Kitten Mask", "Your owner gave you a cute~ Kitten Mask ~UwU~ It gives you an irresistible urge to Nya in every sentence.", "cute-kitty-mask-232-with-bg_ergebnis.tga")
+        y = AddButton(parent, y, "Small Gag", "Your owner has fitted a small silken gag over your mouth. Speech is now garbled.", "small-gag-232-with-bg_ergebnis.tga")
+        y = AddButton(parent, y, "Heavy Gag", "Your owner has secured a heavy gag in place. You can no longer speak.", "Heavy-gag-232-with-bg_ergebnis.tga")
+        y = AddButton(parent, y, "Kitty Mask With Gag!", "Your owner put a gag and a Kitten Mask on you! You must have been a really naughty cat!", "kitty-mask-with-gag-232-with-bg_ergebnis.tga")
+        y = AddButton(parent, y, "Inflatable Gag", "Your owner fits an inflatable gag over your mouth.", "Inflatable-gag-232-with-bg_ergebnis.tga")
         y = AddButton(parent, y, "Inflate Gag", "Your owner inflates your gag.")
         y = AddButton(parent, y, "Deflate Gag", "Your owner deflates your gag.")
         y = y - 4
@@ -673,9 +750,9 @@ local function ShowControlPanel(kitten)
     local blindfoldBlock = CreateCollapsibleBlock("Blindfolds")
     BuildCollapsibleContent(blindfoldBlock, function(parent, y)
         y = AddHeader(parent, y, "Apply")
-        y = AddButton(parent, y, "Light Blindfold", "Your owner put a light blindfold on you.")
-        y = AddButton(parent, y, "Cute Kitty Blindfold", "Your owner put a cute kitty blindfold on you.")
-        y = AddButton(parent, y, "Full Blindfold", "Your owner put a full blindfold on you.")
+        y = AddButton(parent, y, "Light Blindfold", "Your owner put a light blindfold on you.", "Light-Blindfold-232-with-bg_ergebnis.tga")
+        y = AddButton(parent, y, "Cute Kitty Blindfold", "Your owner put a cute kitty blindfold on you.", "Cute-Kitty-Blindfold-232-with-bg_ergebnis.tga")
+        y = AddButton(parent, y, "Full Blindfold", "Your owner put a full blindfold on you.", "Heavy-Blindfold-232-with-bg_ergebnis.tga")
         y = y - 4
         y = AddHeader(parent, y, "Remove")
         y = AddButton(parent, y, "Remove Blindfold", "Your owner removed your blindfold.")
@@ -687,8 +764,8 @@ local function ShowControlPanel(kitten)
     local earmuffsBlock = CreateCollapsibleBlock("Earmuffs")
     BuildCollapsibleContent(earmuffsBlock, function(parent, y)
         y = AddHeader(parent, y, "Apply")
-        y = AddButton(parent, y, "Kitten Earmuffs", "Your owner put kitten earmuffs on you.")
-        y = AddButton(parent, y, "Heavy Earmuffs", "Your owner put heavy earmuffs on you, Nyo!!!")
+        y = AddButton(parent, y, "Kitten Earmuffs", "Your owner put kitten earmuffs on you.", "Kitten-Earmuffs-bg_ergebnis.tga")
+        y = AddButton(parent, y, "Heavy Earmuffs", "Your owner put heavy earmuffs on you, Nyo!!!", "Heav-Earmuffs-bg_ergebnis.tga")
         y = y - 4
         y = AddHeader(parent, y, "Remove")
         y = AddButton(parent, y, "Remove Earmuffs", "Your owner removed your earmuffs. Puhhh~")
@@ -700,8 +777,8 @@ local function ShowControlPanel(kitten)
     local bellsBlock = CreateCollapsibleBlock("Bells")
     BuildCollapsibleContent(bellsBlock, function(parent, y)
         y = AddHeader(parent, y, "Apply")
-        y = AddButton(parent, y, "Attach Bell", "You hear a soft *click* as your owner attaches a tiny bell to your collar. Every step now jingles~")
-        y = AddButton(parent, y, "Attach Tail Bell", "You hear a soft *click* as your owner attaches a tiny bell to your tail. Every step now jingles~")
+        y = AddButton(parent, y, "Attach Bell", "You hear a soft *click* as your owner attaches a tiny bell to your collar. Every step now jingles~", "bell-232-with-bg_ergebnis.tga")
+        y = AddButton(parent, y, "Attach Tail Bell", "You hear a soft *click* as your owner attaches a tiny bell to your tail. Every step now jingles~", "tail-bell-232-with-bg_ergebnis.tga")
         y = y - 4
         y = AddHeader(parent, y, "Remove")
         y = AddButton(parent, y, "Remove Bell", "With a gentle touch, your owner removes the bell from your collar. It's quiet again... for now.")
@@ -715,8 +792,8 @@ local function ShowControlPanel(kitten)
     local mittensBlock = CreateCollapsibleBlock("Mittens")
     BuildCollapsibleContent(mittensBlock, function(parent, y)
         y = AddHeader(parent, y, "Apply")
-        y = AddButton(parent, y, "Lockable Paw Mittens", "Your owner has locked tight paw mittens onto your paws. They are reinforced so you cannot use your paws properly or extend your claws at all.")
-        y = AddButton(parent, y, "Squeking Paw Mittens", "Your owner has locked squeking paw mittens onto your paws. They squeak whenever you cast and only swap your spells briefly every 30 seconds.")
+        y = AddButton(parent, y, "Lockable Paw Mittens", "Your owner has locked tight paw mittens onto your paws. They are reinforced so you cannot use your paws properly or extend your claws at all.", "locking-paw-mitten-232-with-bg_ergebnis.tga")
+        y = AddButton(parent, y, "Squeking Paw Mittens", "Your owner has locked squeking paw mittens onto your paws. They squeak whenever you cast and only swap your spells briefly every 30 seconds.", "paw-mitten-232-with-bg_ergebnis.tga")
         y = y - 4
         y = AddHeader(parent, y, "Remove")
         y = AddButton(parent, y, "Remove Paw Mittens", "Your owner removed your paw mittens. Your paws are free again.")
@@ -728,9 +805,9 @@ local function ShowControlPanel(kitten)
     local heelsBlock = CreateCollapsibleBlock("Heels")
     BuildCollapsibleContent(heelsBlock, function(parent, y)
         y = AddHeader(parent, y, "Apply")
-        y = AddButton(parent, y, "Locking Maid Heels 3-CM", "Your owner locked you into locking maid heels 3-CM. The heels are locked on; the higher the heel, the harder it is to walk.")
-        y = AddButton(parent, y, "Locking High Heels 8-CM", "Your owner locked you into locking high heels 8-CM. The heels are locked on; the higher the heel, the harder it is to walk.")
-        y = AddButton(parent, y, "Locking Ballet Boot 12-CM", "Your owner locked you into locking ballet boot 12-CM. The heels are locked on; the higher the heel, the harder it is to walk. Your feet were squeezed into them, and it is going to be painful for an untrained kitten after just a few minutes.")
+        y = AddButton(parent, y, "Locking Maid Heels 3-CM", "Your owner locked you into locking maid heels 3-CM. The heels are locked on; the higher the heel, the harder it is to walk.", "maid-heell-232-with-bg_ergebnis.tga")
+        y = AddButton(parent, y, "Locking High Heels 8-CM", "Your owner locked you into locking high heels 8-CM. The heels are locked on; the higher the heel, the harder it is to walk.", "heell-232-with-bg_ergebnis.tga")
+        y = AddButton(parent, y, "Locking Ballet Boot 12-CM", "Your owner locked you into locking ballet boot 12-CM. The heels are locked on; the higher the heel, the harder it is to walk. Your feet were squeezed into them, and it is going to be painful for an untrained kitten after just a few minutes.", "balletheel-232-with-bg_ergebnis.tga")
         y = y - 4
         y = AddHeader(parent, y, "Remove")
         y = AddButton(parent, y, "Remove Heels", "Your owner removed your heels. Your feet are free again.")
@@ -742,7 +819,7 @@ local function ShowControlPanel(kitten)
     local trackingBlock = CreateCollapsibleBlock("Tracking")
     BuildCollapsibleContent(trackingBlock, function(parent, y)
         y = AddHeader(parent, y, "Apply")
-        y = AddButton(parent, y, "Attach Tracking Jewel", "Your owner attached a glowing jewel to your collar. Its magic will track your every move!")
+        y = AddButton(parent, y, "Attach Tracking Jewel", "Your owner attached a glowing jewel to your collar. Its magic will track your every move!", "jewel-232-with-bg_ergebnis.tga")
         y = y - 4
         y = AddHeader(parent, y, "Remove")
         y = AddButton(parent, y, "Remove Tracking Jewel", "Your owner removed the glowing jewel from your collar. Its magic will no longer track you.")
