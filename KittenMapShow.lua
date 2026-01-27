@@ -103,6 +103,7 @@ local function EnsureOverlay()
 
     overlay = CreateFrame("Frame", nil, canvas)
     overlay:SetAllPoints(canvas)
+    overlay:SetFrameStrata("HIGH")
     overlay.markers = {}
     overlay.markerHovers = {}
     overlay:SetFrameLevel(canvas:GetFrameLevel() + 5)
@@ -121,6 +122,9 @@ local function AcquireMarker(index)
         marker = overlay:CreateTexture(nil, "ARTWORK")
         marker:SetSize(MARKER_SIZE, MARKER_SIZE)
         marker:SetTexture(MARKER_TEXTURE)
+        marker:SetDrawLayer("OVERLAY", 2)
+        marker:SetAlpha(0.85)
+        marker:SetBlendMode("BLEND")
         overlay.markers[index] = marker
     end
     marker:Show()
@@ -130,9 +134,9 @@ end
 local function AcquireMarkerHover(index)
     local hover = overlay.markerHovers[index]
     if not hover then
-        hover = CreateFrame("Frame", nil, overlay)
-        hover:EnableMouse(true)
-        hover:SetFrameLevel(overlay:GetFrameLevel() + 2)
+    hover = CreateFrame("Frame", nil, overlay)
+    hover:EnableMouse(true)
+    hover:SetFrameLevel(overlay:GetFrameLevel() + 10)
         hover:SetScript("OnEnter", function(self)
             if not GameTooltip or not self.timestamp then return end
             GameTooltip:SetOwner(self, "ANCHOR_CURSOR")

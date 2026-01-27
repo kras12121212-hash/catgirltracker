@@ -19,6 +19,7 @@ KittenEars.lua
 MaidTaskSceduler.lua
 MaidTaskReciver.lua
 CatGirlControlCenter.lua
+KittenPictureShow.lua
 SendData.lua
 ReciveData.lua
 KittenMapShow.lua

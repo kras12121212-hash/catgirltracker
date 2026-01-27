@@ -240,9 +240,93 @@ local function GetLeashState(log)
     return "Unknown"
 end
 
-local function BuildStatsLines(kittenName)
+local function GetAppliedBindIconFiles(log)
+    local icons = {}
+    if not log or type(log) ~= "table" then
+        return icons
+    end
+
+    local function addIcon(fileName)
+        if fileName then
+            table.insert(icons, fileName)
+        end
+    end
+
+    local gagEntry = FindLastEvent(log, "KittenGag")
+    local gagState = gagEntry and gagEntry.Gagstate
+    if gagState == "Gag" then
+        addIcon("Heavy-gag-232-with-bg_ergebnis.tga")
+    elseif gagState == "LightGag" then
+        addIcon("small-gag-232-with-bg_ergebnis.tga")
+    elseif gagState == "FullBlock" then
+        addIcon("kitty-mask-with-gag-232-with-bg_ergebnis.tga")
+    elseif gagState == "NyaMask" then
+        addIcon("cute-kitty-mask-232-with-bg_ergebnis.tga")
+    elseif type(gagState) == "string" and gagState:match("^Inflatable") then
+        addIcon("Inflatable-gag-232-with-bg_ergebnis.tga")
+    end
+
+    local blindEntry = FindLastEvent(log, "KittenBlindfold")
+    local blindState = blindEntry and blindEntry.BlindfoldState
+    if blindState == "light" then
+        addIcon("Light-Blindfold-232-with-bg_ergebnis.tga")
+    elseif blindState == "mask" then
+        addIcon("Cute-Kitty-Blindfold-232-with-bg_ergebnis.tga")
+    elseif blindState == "full" then
+        addIcon("Heavy-Blindfold-232-with-bg_ergebnis.tga")
+    end
+
+    local earEntry = FindLastEvent(log, "KittenEarmuffs")
+    local earState = earEntry and earEntry.state
+    if earState == "KittenEarmuffs" then
+        addIcon("Kitten-Earmuffs-bg_ergebnis.tga")
+    elseif earState == "HeavyEarmuffs" then
+        addIcon("Heav-Earmuffs-bg_ergebnis.tga")
+    end
+
+    local mittensEntry = FindLastEvent(log, "PawMittens")
+    local mittenState = mittensEntry and mittensEntry.state
+    if mittenState == "locked" or mittenState == "heavy" then
+        addIcon("locking-paw-mitten-232-with-bg_ergebnis.tga")
+    elseif mittenState == "squeaking" or mittenState == "squeking" then
+        addIcon("paw-mitten-232-with-bg_ergebnis.tga")
+    end
+
+    local heelsEntry = FindLastEvent(log, "KittenHeels")
+    local heelsState = heelsEntry and heelsEntry.state
+    if heelsState == "maid" then
+        addIcon("maid-heell-232-with-bg_ergebnis.tga")
+    elseif heelsState == "high" then
+        addIcon("heell-232-with-bg_ergebnis.tga")
+    elseif heelsState == "ballet" then
+        addIcon("balletheel-232-with-bg_ergebnis.tga")
+    end
+
+    local bellEntry = FindLastEvent(log, "BellState")
+    if bellEntry and bellEntry.state then
+        addIcon("bell-232-with-bg_ergebnis.tga")
+    end
+
+    local tailEntry = FindLastEvent(log, "TailBellState")
+    if tailEntry and tailEntry.state then
+        addIcon("tail-bell-232-with-bg_ergebnis.tga")
+    end
+
+    local trackingEntry = FindLastEvent(log, "TrackingJewel")
+    if trackingEntry and trackingEntry.state then
+        addIcon("jewel-232-with-bg_ergebnis.tga")
+    end
+
+    if GetLeashState(log) == "Leashed" then
+        addIcon("leash-232-with-gb_ergebnis.tga")
+    end
+
+    return icons
+end
+
+local function BuildStatsSections(kittenName)
     if not kittenName or kittenName == "" then
-        return { "No data synced for this kitten yet." }
+        return { "No data synced for this kitten yet." }, {}, {}
     end
     local kittenKey = ShortName(kittenName)
     local log = CatgirlBehaviorDB
@@ -250,56 +334,57 @@ local function BuildStatsLines(kittenName)
         and CatgirlBehaviorDB.BehaviorLog[kittenKey]
 
     if not log or type(log) ~= "table" then
-        return { "No data synced for this kitten yet." }
+        return { "No data synced for this kitten yet." }, {}, {}
     end
 
-    local lines = {}
-    table.insert(lines, "Applied binds:")
+    local appliedLines = {}
+    table.insert(appliedLines, "Applied binds:")
 
     local gagEntry = FindLastEvent(log, "KittenGag")
-    table.insert(lines, "Gag: " .. FormatGagState(gagEntry and gagEntry.Gagstate))
+    table.insert(appliedLines, "Gag: " .. FormatGagState(gagEntry and gagEntry.Gagstate))
 
     local blindEntry = FindLastEvent(log, "KittenBlindfold")
-    table.insert(lines, "Blindfold: " .. FormatBlindfoldState(blindEntry and blindEntry.BlindfoldState))
+    table.insert(appliedLines, "Blindfold: " .. FormatBlindfoldState(blindEntry and blindEntry.BlindfoldState))
 
     local earEntry = FindLastEvent(log, "KittenEarmuffs")
-    table.insert(lines, "Earmuffs: " .. FormatEarmuffState(earEntry and earEntry.state))
+    table.insert(appliedLines, "Earmuffs: " .. FormatEarmuffState(earEntry and earEntry.state))
 
     local mittensEntry = FindLastEvent(log, "PawMittens")
-    table.insert(lines, "Paw Mittens: " .. FormatMittensState(mittensEntry and mittensEntry.state))
+    table.insert(appliedLines, "Paw Mittens: " .. FormatMittensState(mittensEntry and mittensEntry.state))
 
     local heelsEntry = FindLastEvent(log, "KittenHeels")
-    table.insert(lines, "Heels: " .. FormatHeelsState(heelsEntry and heelsEntry.state))
+    table.insert(appliedLines, "Heels: " .. FormatHeelsState(heelsEntry and heelsEntry.state))
 
     local bellEntry = FindLastEvent(log, "BellState")
-    table.insert(lines, "Bell: " .. FormatBooleanState(bellEntry and bellEntry.state))
+    table.insert(appliedLines, "Bell: " .. FormatBooleanState(bellEntry and bellEntry.state))
 
     local tailEntry = FindLastEvent(log, "TailBellState")
-    table.insert(lines, "Tail Bell: " .. FormatBooleanState(tailEntry and tailEntry.state))
+    table.insert(appliedLines, "Tail Bell: " .. FormatBooleanState(tailEntry and tailEntry.state))
 
     local trackingEntry = FindLastEvent(log, "TrackingJewel")
-    table.insert(lines, "Tracking Jewel: " .. FormatBooleanState(trackingEntry and trackingEntry.state))
+    table.insert(appliedLines, "Tracking Jewel: " .. FormatBooleanState(trackingEntry and trackingEntry.state))
 
-    table.insert(lines, "Leash: " .. GetLeashState(log))
+    table.insert(appliedLines, "Leash: " .. GetLeashState(log))
 
+    local otherLines = {}
     local locationLog = CatgirlLocationDB
         and CatgirlLocationDB.LocationLog
         and CatgirlLocationDB.LocationLog[kittenKey]
     if locationLog and #locationLog > 0 then
         local lastLocation = locationLog[#locationLog]
-        table.insert(lines, "Last Location Sync: " .. FormatCoords(lastLocation))
-        table.insert(lines, FormatDistanceToKitten(lastLocation))
+        table.insert(otherLines, "Last Location Sync: " .. FormatCoords(lastLocation))
+        table.insert(otherLines, FormatDistanceToKitten(lastLocation))
     else
-        table.insert(lines, "Last Location Sync: None")
-        table.insert(lines, "Distance to kitten: Unknown")
+        table.insert(otherLines, "Last Location Sync: None")
+        table.insert(otherLines, "Distance to kitten: Unknown")
     end
 
     local heelsSkills = GetHeelsSkillLevels(log)
-    table.insert(lines, "")
-    table.insert(lines, "Kitten Skills:")
-    table.insert(lines, "Maid heels: " .. FormatSkillLevel(heelsSkills.maid))
-    table.insert(lines, "High heels: " .. FormatSkillLevel(heelsSkills.high))
-    table.insert(lines, "Ballet boots: " .. FormatSkillLevel(heelsSkills.ballet))
+    table.insert(otherLines, "")
+    table.insert(otherLines, "Kitten Skills:")
+    table.insert(otherLines, "Maid heels: " .. FormatSkillLevel(heelsSkills.maid))
+    table.insert(otherLines, "High heels: " .. FormatSkillLevel(heelsSkills.high))
+    table.insert(otherLines, "Ballet boots: " .. FormatSkillLevel(heelsSkills.ballet))
 
     local timerLines = {}
     local timerKeys = {
@@ -323,17 +408,17 @@ local function BuildStatsLines(kittenName)
         end
     end
 
-    table.insert(lines, "")
+    table.insert(otherLines, "")
     if #timerLines > 0 then
-        table.insert(lines, "Timed removals:")
+        table.insert(otherLines, "Timed removals:")
         for _, line in ipairs(timerLines) do
-            table.insert(lines, line)
+            table.insert(otherLines, line)
         end
     else
-        table.insert(lines, "Timed removals: none")
+        table.insert(otherLines, "Timed removals: none")
     end
 
-    return lines
+    return appliedLines, otherLines, GetAppliedBindIconFiles(log)
 end
 
 -- Create control panel UI
@@ -572,19 +657,100 @@ local function ShowControlPanel(kitten)
     warningText:SetText("You dont own a kitten yet most Functions not avilable!!!")
     warningText:Hide()
 
-    local statsText = statsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    statsText:SetPoint("TOPLEFT", 0, -70)
-    statsText:SetJustifyH("LEFT")
-    statsText:SetWidth(280)
-    statsText:SetText("")
+    local statsAppliedText = statsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    statsAppliedText:SetPoint("TOPLEFT", 0, -70)
+    statsAppliedText:SetJustifyH("LEFT")
+    statsAppliedText:SetWidth(280)
+    statsAppliedText:SetText("")
+
+    local statsIcons = CreateFrame("Frame", nil, statsContent)
+    statsIcons:SetPoint("TOPLEFT", statsAppliedText, "BOTTOMLEFT", 0, -8)
+    statsIcons:SetWidth(280)
+    statsIcons:SetHeight(1)
+
+    local statsRestText = statsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    statsRestText:SetPoint("TOPLEFT", statsIcons, "BOTTOMLEFT", 0, -8)
+    statsRestText:SetJustifyH("LEFT")
+    statsRestText:SetWidth(280)
+    statsRestText:SetText("")
+
+    local statsIconTextures = {}
 
     frame.UpdateStats = function(self)
         local noKitten = not self.kitten
         warningText:SetShown(noKitten)
-        local lines = BuildStatsLines(self.kitten)
-        statsText:SetText(table.concat(lines, "\n"))
+        local appliedLines, otherLines, iconFiles = BuildStatsSections(self.kitten)
+        statsAppliedText:SetText(table.concat(appliedLines, "\n"))
+        statsRestText:SetText(table.concat(otherLines, "\n"))
         local lineHeight = 14
-        local height = (#lines * lineHeight) + 40
+        local appliedHeight = #appliedLines * lineHeight
+        local otherHeight = #otherLines * lineHeight
+        statsAppliedText:SetHeight(appliedHeight)
+        statsRestText:SetHeight(otherHeight)
+
+        local iconCount = iconFiles and #iconFiles or 0
+        local statsIconSize = 40
+        local statsIconPadding = 6
+        local statsSectionSpacing = 8
+
+        statsIcons:ClearAllPoints()
+        if iconCount > 0 then
+            statsIcons:SetPoint("TOPLEFT", statsAppliedText, "BOTTOMLEFT", 0, -statsSectionSpacing)
+        else
+            statsIcons:SetPoint("TOPLEFT", statsAppliedText, "BOTTOMLEFT", 0, 0)
+        end
+
+        local iconsPerRow = math.max(1, math.floor((statsIcons:GetWidth() + statsIconPadding) / (statsIconSize + statsIconPadding)))
+        local iconRows = iconCount > 0 and (math.floor((iconCount - 1) / iconsPerRow) + 1) or 0
+        local iconsHeight = iconRows > 0
+            and (iconRows * statsIconSize + (iconRows - 1) * statsIconPadding)
+            or 0
+
+        for i, fileName in ipairs(iconFiles or {}) do
+            local tex = statsIconTextures[i]
+            if not tex then
+                tex = statsIcons:CreateTexture(nil, "ARTWORK")
+                statsIconTextures[i] = tex
+            end
+            local row = math.floor((i - 1) / iconsPerRow)
+            local col = (i - 1) % iconsPerRow
+            tex:ClearAllPoints()
+            tex:SetPoint("TOPLEFT", col * (statsIconSize + statsIconPadding), -row * (statsIconSize + statsIconPadding))
+            tex:SetSize(statsIconSize, statsIconSize)
+            tex:SetTexture(BuildControlIconPath(fileName))
+            tex:Show()
+        end
+        for i = iconCount + 1, #statsIconTextures do
+            statsIconTextures[i]:Hide()
+        end
+
+        if iconCount > 0 then
+            statsIcons:SetHeight(iconsHeight)
+            statsIcons:Show()
+        else
+            statsIcons:SetHeight(1)
+            statsIcons:Hide()
+        end
+
+        statsRestText:ClearAllPoints()
+        if iconCount > 0 then
+            statsRestText:SetPoint("TOPLEFT", statsIcons, "BOTTOMLEFT", 0, -statsSectionSpacing)
+        else
+            statsRestText:SetPoint("TOPLEFT", statsAppliedText, "BOTTOMLEFT", 0, 0)
+        end
+
+        local height = 70 + appliedHeight
+        if iconCount > 0 then
+            height = height + statsSectionSpacing + iconsHeight
+            if otherHeight > 0 then
+                height = height + statsSectionSpacing + otherHeight
+            end
+        else
+            if otherHeight > 0 then
+                height = height + otherHeight
+            end
+        end
+        height = height + 20
         if noKitten then
             height = height + 44
         end
