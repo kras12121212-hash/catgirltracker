@@ -269,21 +269,41 @@ end
 
 local function ParseHeelsLoop(msg)
     local action, heelType, owner, mapID, x, y, instanceID = msg:match(
-        "^HeelsLoop(Start|Stop), type:([^,]+), owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)"
+        "^HeelsLoop(Start), type:([^,]+), owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)"
     )
     if not action then
         action, heelType, owner, mapID, x, y = msg:match(
-            "^HeelsLoop(Start|Stop), type:([^,]+), owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
+            "^HeelsLoop(Start), type:([^,]+), owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
+        )
+    end
+    if not action then
+        action, heelType, owner, mapID, x, y, instanceID = msg:match(
+            "^HeelsLoop(Stop), type:([^,]+), owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)"
+        )
+    end
+    if not action then
+        action, heelType, owner, mapID, x, y = msg:match(
+            "^HeelsLoop(Stop), type:([^,]+), owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
         )
     end
     if not action then
         action, owner, heelType, mapID, x, y, instanceID = msg:match(
-            "^HeelsLoop(Start|Stop), owner:([^,]+), type:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)"
+            "^HeelsLoop(Start), owner:([^,]+), type:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)"
         )
     end
     if not action then
         action, owner, heelType, mapID, x, y = msg:match(
-            "^HeelsLoop(Start|Stop), owner:([^,]+), type:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
+            "^HeelsLoop(Start), owner:([^,]+), type:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
+        )
+    end
+    if not action then
+        action, owner, heelType, mapID, x, y, instanceID = msg:match(
+            "^HeelsLoop(Stop), owner:([^,]+), type:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)"
+        )
+    end
+    if not action then
+        action, owner, heelType, mapID, x, y = msg:match(
+            "^HeelsLoop(Stop), owner:([^,]+), type:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
         )
     end
     if not action or not owner then return nil end
@@ -371,7 +391,6 @@ local function HandleHeelsLoop(msg, senderShort)
         local close = IsHeelsLoopClose(mapID, x, y, instanceID)
         if close then
             StartHeelsLoop(heelType)
-            print("|cff88ff88CatgirlTracker:|r Heel steps heard from:", senderShort)
         end
         return
     end
