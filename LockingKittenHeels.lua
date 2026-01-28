@@ -69,6 +69,37 @@ local skillWindow = {}
 local skillWindowTrue = {}
 local skillWalkAccum = {}
 local failureOverlay = nil
+local heelsFailActive = false
+
+local function GetHeelDisplayName(kind)
+    if kind == HEELS_TYPE_MAID then
+        return "Maid Heels"
+    elseif kind == HEELS_TYPE_HIGH then
+        return "High Heels"
+    elseif kind == HEELS_TYPE_BALLET then
+        return "Ballet Boots"
+    end
+    return "Heels"
+end
+
+local function SendGuildMessage(message)
+    if SendChatMessage then
+        SendChatMessage(message, "GUILD")
+    end
+end
+
+local function SendGroupMessage(message)
+    if not SendChatMessage then
+        return
+    end
+    if IsInGroup and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+        SendChatMessage(message, "INSTANCE_CHAT")
+    elseif IsInRaid and IsInRaid() then
+        SendChatMessage(message, "RAID")
+    elseif IsInGroup and IsInGroup() then
+        SendChatMessage(message, "PARTY")
+    end
+end
 
 -- Behavior DB setup
 CatgirlBehaviorDB = CatgirlBehaviorDB or {}
@@ -564,7 +595,14 @@ local function UpdateSkillProgress(avgSpeed, allowedSpeed, currentSpeed)
     local required = GetLevelRequirement(level)
     if level < HEELS_MAX_LEVEL and (skillProgress[kind] or 0) >= required then
         ResetSkillProgress(kind)
-        SetSkillLevel(kind, level + 1)
+        local newLevel = level + 1
+        SetSkillLevel(kind, newLevel)
+        SendGuildMessage(string.format(
+            "Yeah \"%s\" Is Making Progress Learning How to walk in her \"%s\" she just reached lvl \"%d\"",
+            kittyname or "Kitten",
+            GetHeelDisplayName(kind),
+            newLevel
+        ))
         level = GetSkillLevel(kind)
         required = GetLevelRequirement(level)
     end
@@ -628,9 +666,22 @@ local function HeelsWarningTick()
     UpdateSkillProgress(avgSpeed, allowedSpeed, speed)
 
     if allowedSpeed and avgSpeed > allowedSpeed then
+        if not heelsFailActive then
+            heelsFailActive = true
+            local level = GetSkillLevel(activeHeelsType)
+            local failMessage = string.format(
+                "Oh no \"%s\" Just fell trying to walk in her \"%s\" she should be more careful and take it slow or she will be stuck at Level \"%d\" forever Nya~",
+                kittyname or "Kitten",
+                GetHeelDisplayName(activeHeelsType),
+                level
+            )
+            SendGuildMessage(failMessage)
+            SendGroupMessage(failMessage)
+        end
         ShowHeelsWarning()
         ShowFailureOverlay(activeHeelsType)
     else
+        heelsFailActive = false
         ClearHeelsWarning()
     end
 

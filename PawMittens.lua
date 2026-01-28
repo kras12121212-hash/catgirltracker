@@ -18,7 +18,7 @@ local pendingRestoreSlot = nil
 local ACTION_SLOTS = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }
 local MITTENS_MACRO_NAME = "PawMittensOops"
 local MITTENS_MACRO_ICON = "INV_Misc_QuestionMark"
-local MITTENS_SAY_TEXT = "Looks like kitten has trouble using her spells with her locked on Paw mittens nya!"
+local MITTENS_SAY_TEXT = "Oh no looks like kitten has trouble using her spells with her Paws nya!"
 
 -- Cursor overlay configuration
 local MITTENS_TEXTURE_PATH = "Interface\\AddOns\\CatgirlTracker\\Textures\\pawmittens.tga"
