@@ -47,6 +47,7 @@ local HEELS_PROGRESS_CHUNK_SECONDS = 5
 local HEELS_PROGRESS_WINDOW = 30
 local HEELS_PROGRESS_MIN_RATIO = 0.45
 local HEELS_PROGRESS_RESET_RATIO = 1.0
+local HEELS_PING_INTERVAL = 1.0
 
 local heelsLocked = false
 local activeHeelsType = nil
@@ -54,6 +55,7 @@ local heelsSoundTicker = nil
 local heelsLoopHandle = nil
 local heelsLoopActive = false
 local heelsMoving = false
+local lastHeelsPingAt = 0
 local heelsWarningTicker = nil
 local lastWarningAt = 0
 local heelsWarningActive = false
@@ -279,7 +281,9 @@ local function SendHeelsLoopEvent(action, heelsType)
     if not action then return end
     local kind = heelsType or activeHeelsType
     if not kind then return end
-    local prefix = action == "Start" and "HeelsLoopStart" or "HeelsLoopStop"
+    local prefix = action == "Start" and "HeelsLoopStart"
+        or action == "Stop" and "HeelsLoopStop"
+        or "HeelsLoopPing"
     local msgPrefix = string.format("%s, type:%s", prefix, kind)
     SendHeelSound(msgPrefix)
 end
@@ -630,7 +634,7 @@ local function HeelsWarningTick()
         ClearHeelsWarning()
     end
 
-    local isMoving = IsPlayerMoving and IsPlayerMoving()
+    local isMoving = speed > 0
     if isMoving and not heelsMoving then
         heelsMoving = true
         StartHeelsSoundLoop()
@@ -639,6 +643,14 @@ local function HeelsWarningTick()
         heelsMoving = false
         StopHeelsSoundLoop()
         SendHeelsLoopEvent("Stop", activeHeelsType)
+    end
+
+    if heelsMoving then
+        local now = GetNow()
+        if now - lastHeelsPingAt >= HEELS_PING_INTERVAL then
+            lastHeelsPingAt = now
+            SendHeelsLoopEvent("Ping", activeHeelsType)
+        end
     end
 end
 
@@ -688,6 +700,7 @@ local function ApplyHeels(sender, heelsType)
     StartHeelsWarningLoop()
     ResetSpeedSamples()
     heelsMoving = false
+    lastHeelsPingAt = 0
     StopHeelsSoundLoop()
     ResetSkillWindow(heelsType)
     LogHeelsState(heelsType)
@@ -717,6 +730,7 @@ local function RemoveHeels(sender, isAuto)
         SendHeelsLoopEvent("Stop", prevType)
     end
     heelsMoving = false
+    lastHeelsPingAt = 0
     StopHeelsWarningLoop()
     ResetSpeedSamples()
     UpdateSpeedBar(0, nil)
@@ -761,6 +775,7 @@ local function RestoreHeelsState()
                 StartHeelsWarningLoop()
                 ResetSpeedSamples()
                 heelsMoving = false
+                lastHeelsPingAt = 0
                 StopHeelsSoundLoop()
                 ResetSkillWindow(entry.state)
                 UpdateWalkModeForHeels()
@@ -772,6 +787,7 @@ local function RestoreHeelsState()
                     SendHeelsLoopEvent("Stop", prevType)
                 end
                 heelsMoving = false
+                lastHeelsPingAt = 0
                 StopHeelsWarningLoop()
                 ResetSpeedSamples()
                 UpdateSpeedBar(0, nil)
@@ -789,6 +805,7 @@ local function RestoreHeelsState()
         SendHeelsLoopEvent("Stop", prevType)
     end
     heelsMoving = false
+    lastHeelsPingAt = 0
     StopHeelsWarningLoop()
     ResetSpeedSamples()
     UpdateSpeedBar(0, nil)

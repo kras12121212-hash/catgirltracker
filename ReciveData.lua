@@ -14,7 +14,7 @@ local myName = UnitName("player")
 local myShortName = myName:match("^[^%-]+")
 local TAIL_BELL_CLOSE_RANGE = 0.02
 local PAW_SQUEAK_CLOSE_RANGE = 0.02
-local HEELS_STEP_CLOSE_RANGE = 0.02
+local HEELS_STEP_CLOSE_RANGE = 0.005
 local PAW_SQUEAK_SOUNDS = {
     "Interface\\AddOns\\CatgirlTracker\\Sounds\\pawsqueak1.wav",
     "Interface\\AddOns\\CatgirlTracker\\Sounds\\pawsqueak2.wav",
@@ -287,6 +287,16 @@ local function ParseHeelsLoop(msg)
         )
     end
     if not action then
+        action, heelType, owner, mapID, x, y, instanceID = msg:match(
+            "^HeelsLoop(Ping), type:([^,]+), owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)"
+        )
+    end
+    if not action then
+        action, heelType, owner, mapID, x, y = msg:match(
+            "^HeelsLoop(Ping), type:([^,]+), owner:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
+        )
+    end
+    if not action then
         action, owner, heelType, mapID, x, y, instanceID = msg:match(
             "^HeelsLoop(Start), owner:([^,]+), type:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)"
         )
@@ -306,6 +316,16 @@ local function ParseHeelsLoop(msg)
             "^HeelsLoop(Stop), owner:([^,]+), type:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
         )
     end
+    if not action then
+        action, owner, heelType, mapID, x, y, instanceID = msg:match(
+            "^HeelsLoop(Ping), owner:([^,]+), type:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)"
+        )
+    end
+    if not action then
+        action, owner, heelType, mapID, x, y = msg:match(
+            "^HeelsLoop(Ping), owner:([^,]+), type:([^,]+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
+        )
+    end
     if not action or not owner then return nil end
     return action, owner:match("^[^%-]+"), heelType, ParseNumber(mapID), ParseNumber(x), ParseNumber(y), ParseNumber(instanceID)
 end
@@ -317,9 +337,6 @@ local function IsHeelsLoopClose(mapID, x, y, instanceID)
         local dy = ownerY - y
         local dist = math.sqrt(dx * dx + dy * dy)
         return dist <= HEELS_STEP_CLOSE_RANGE, dist
-    end
-    if IsSameInstance(instanceID) then
-        return true, nil
     end
     return false, nil
 end
@@ -387,15 +404,17 @@ local function HandleHeelsLoop(msg, senderShort)
         return
     end
 
-    if action == "Start" then
-        local close = IsHeelsLoopClose(mapID, x, y, instanceID)
-        if close then
-            StartHeelsLoop(heelType)
-        end
+    if action == "Stop" then
+        StopHeelsLoop()
         return
     end
 
-    StopHeelsLoop()
+    local close = IsHeelsLoopClose(mapID, x, y, instanceID)
+    if close then
+        StartHeelsLoop(heelType)
+    else
+        StopHeelsLoop()
+    end
 end
 
 -- Register prefix once
