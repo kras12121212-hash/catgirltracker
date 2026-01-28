@@ -59,11 +59,11 @@ f:SetScript("OnEvent", function(_, event, msg, sender)
     
         local outMsg
         if affectionType == "Spanked" then
-            outMsg = string.format("Was a Bad Kitten and got spanked from %s", sender)
+            outMsg = CCT_Msg("HEADPET_SPANKED", sender)
         elseif affectionType == "EarPinch" then
-            outMsg = string.format("Was a Bad Kitten and got pinched in the ear from %s", sender)
+            outMsg = CCT_Msg("HEADPET_EARPINCH", sender)
         else
-            outMsg = string.format("Was a good Kitten and received a %s from %s", affectionType, sender)
+            outMsg = CCT_Msg("HEADPET_GOOD", affectionType, sender)
         end
         
 

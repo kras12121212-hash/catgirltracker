@@ -237,7 +237,7 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
             logGagState("Gag")
             print("|cffff66ccCatgirlTracker:|r You've been heavily gagged nya~")
             CCT_RaidNotice("Gag applied: heavy gag.")
-            SendChatMessage("Has been gagged with a huge gag NYA!!! She's already whimpering... );", "WHISPER", nil, sender)
+            SendChatMessage(CCT_Msg("GAG_HEAVY"), "WHISPER", nil, sender)
 
         elseif msg:find("small silken gag") then
             gagState = "small"
@@ -245,7 +245,7 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
             logGagState("LightGag")
             print("|cffcc88ffCatgirlTracker:|r A small gag muffles your words...")
             CCT_RaidNotice("Gag applied: small gag.")
-            SendChatMessage("Has been gagged with a small gag. Hopefully that will be a lesson.", "WHISPER", nil, sender)
+            SendChatMessage(CCT_Msg("GAG_SMALL"), "WHISPER", nil, sender)
 
         elseif msg:find("gag and") then
             gagState = "fullblock"
@@ -253,13 +253,13 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
             logGagState("FullBlock")
             print("|cffff0000CatgirlTracker:|r You've been fully muzzled. No words can escape now!")
             CCT_RaidNotice("Gag applied: full mask gag.")
-            SendChatMessage("She has been fully masked and gagged... not a sound can escape! Nya~", "WHISPER", nil, sender)
+            SendChatMessage(CCT_Msg("GAG_FULLBLOCK"), "WHISPER", nil, sender)
 
         elseif msg:find("inflatable gag") then
             SetInflatableStage(1, true)
             print("|cffcc88ffCatgirlTracker:|r An inflatable gag fills your mouth... it's only a little swollen.")
             CCT_RaidNotice("Gag applied: inflatable (stage 1).")
-            SendChatMessage("An inflatable gag is now in place. She can still mumble... for now.", "WHISPER", nil, sender)
+            SendChatMessage(CCT_Msg("GAG_INFLATABLE"), "WHISPER", nil, sender)
 
         elseif msg:find("inflate") and msg:find("gag") then
             if gagState ~= "inflatable" then
@@ -272,7 +272,7 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
             end
             print("|cffff99ffCatgirlTracker:|r The inflatable gag swells tighter in your mouth...")
             CCT_RaidNotice(string.format("Gag inflated to stage %d.", inflatableStage))
-            SendChatMessage("Inflated the gag. She's even more muffled now.", "WHISPER", nil, sender)
+            SendChatMessage(CCT_Msg("GAG_INFLATE"), "WHISPER", nil, sender)
 
         elseif msg:find("deflate") and msg:find("gag") then
             if gagState == "inflatable" then
@@ -282,7 +282,7 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
                 end
                 print("|cff88ffccCatgirlTracker:|r The inflatable gag softens and loosens a bit...")
                 CCT_RaidNotice(string.format("Gag deflated to stage %d.", inflatableStage))
-                SendChatMessage("Deflated the gag slightly. She can mumble a bit more.", "WHISPER", nil, sender)
+                SendChatMessage(CCT_Msg("GAG_DEFLATE"), "WHISPER", nil, sender)
             end
 
         elseif msg:find("gag has been removed") then
@@ -291,7 +291,7 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
             logGagState("none")
             print("|cffaaffaaCatgirlTracker:|r You've been ungagged nya~")
             CCT_RaidNotice("Gag removed.")
-            SendChatMessage("Has been ungagged. She may speak freely again~", "WHISPER", nil, sender)
+            SendChatMessage(CCT_Msg("GAG_REMOVE"), "WHISPER", nil, sender)
 
         elseif msg:find("cute~") then
             gagState = "nyamask"
@@ -299,7 +299,7 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
             logGagState("NyaMask")
             CCT_RaidNotice("Gag applied: cute mask.")
             print("|cffff88eeCatgirlTracker:|r You’re overcome with the urge to add ~Nya~ to everything!")
-            SendChatMessage("Has been given a cute kitten mask. She's meowing every sentence! UwU", "WHISPER", nil, sender)
+            SendChatMessage(CCT_Msg("GAG_NYAMASK"), "WHISPER", nil, sender)
         end
     end
 end)

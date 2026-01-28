@@ -597,8 +597,8 @@ local function UpdateSkillProgress(avgSpeed, allowedSpeed, currentSpeed)
         ResetSkillProgress(kind)
         local newLevel = level + 1
         SetSkillLevel(kind, newLevel)
-        SendGuildMessage(string.format(
-            "Yeah \"%s\" Is Making Progress Learning How to walk in her \"%s\" she just reached lvl \"%d\"",
+        SendGuildMessage(CCT_Msg(
+            "HEELS_PROGRESS",
             kittyname or "Kitten",
             GetHeelDisplayName(kind),
             newLevel
@@ -669,8 +669,8 @@ local function HeelsWarningTick()
         if not heelsFailActive then
             heelsFailActive = true
             local level = GetSkillLevel(activeHeelsType)
-            local failMessage = string.format(
-                "Oh no \"%s\" Just fell trying to walk in her \"%s\" she should be more careful and take it slow or she will be stuck at Level \"%d\" forever Nya~",
+            local failMessage = CCT_Msg(
+                "HEELS_FAIL",
                 kittyname or "Kitten",
                 GetHeelDisplayName(activeHeelsType),
                 level
@@ -732,13 +732,13 @@ end
 
 local function GetHeelsResponse(heelsType)
     if heelsType == HEELS_TYPE_MAID then
-        return "Locking maid heels (3 cm) have been secured. The higher the heel, the harder it is to walk."
+        return CCT_Msg("HEELS_RESPONSE_MAID")
     elseif heelsType == HEELS_TYPE_HIGH then
-        return "Locking high heels (8 cm) have been secured. The higher the heel, the harder it is to walk."
+        return CCT_Msg("HEELS_RESPONSE_HIGH")
     elseif heelsType == HEELS_TYPE_BALLET then
-        return "Locking ballet boots (12 cm) have been secured. The higher the heel, the harder it is to walk."
+        return CCT_Msg("HEELS_RESPONSE_BALLET")
     end
-    return "Heels are locked on."
+    return CCT_Msg("HEELS_RESPONSE_GENERIC")
 end
 
 local function UpdateWalkModeForHeels()
@@ -802,7 +802,7 @@ local function RemoveHeels(sender, isAuto)
     end
 
     if sender then
-        SendChatMessage("Your heels have been removed. Your feet are free again.", "WHISPER", nil, sender)
+        SendChatMessage(CCT_Msg("HEELS_REMOVE"), "WHISPER", nil, sender)
     end
 end
 

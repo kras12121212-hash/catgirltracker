@@ -4,6 +4,7 @@
 ## SavedVariables: CatgirlGuildDB, CatgirlZoneDB, CatgirlPetDB, CatgirlEmoteDB, CatgirlBehaviorDB, CatgirlLocationDB, CatgirlSettingsDB
 
 Debug.lua
+ChatMessages.lua
 gag.lua
 GuildTracker.lua
 ZoneTracker.lua
@@ -28,4 +29,3 @@ LockingKittenHeels.lua
 KittenLockTracker.lua
 CreateLocalMacro.lua
 PetTracker.lua
-

@@ -18,7 +18,6 @@ local pendingRestoreSlot = nil
 local ACTION_SLOTS = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }
 local MITTENS_MACRO_NAME = "PawMittensOops"
 local MITTENS_MACRO_ICON = "INV_Misc_QuestionMark"
-local MITTENS_SAY_TEXT = "Oh no looks like kitten has trouble using her spells with her Paws nya!"
 
 -- Cursor overlay configuration
 local MITTENS_TEXTURE_PATH = "Interface\\AddOns\\CatgirlTracker\\Textures\\pawmittens.tga"
@@ -364,7 +363,7 @@ local function EnsureMittensMacro()
         return nil
     end
 
-    local body = "/say " .. MITTENS_SAY_TEXT
+    local body = "/say " .. CCT_Msg("PAW_MITTENS_SAY")
     local index = GetMacroIndexByName(MITTENS_MACRO_NAME)
 
     local ok, result = pcall(function()
@@ -544,9 +543,9 @@ end
 
 local function GetMittensResponse(mittensType)
     if mittensType == MITTENS_TYPE_SQUEAKING then
-        return "Squeaking paw mittens have been locked onto your kitten's paws. They only swap her spells briefly every 30 seconds and squeak whenever she casts."
+        return CCT_Msg("PAW_MITTENS_RESPONSE_SQUEAKING")
     end
-    return "Tight paw mittens have been locked onto your kitten's paws. They are reinforced, so she cannot use her paws properly or extend her claws at all."
+    return CCT_Msg("PAW_MITTENS_RESPONSE_LOCKED")
 end
 
 local function ApplyPawMittens(sender, mittensType)
@@ -593,7 +592,7 @@ local function RemovePawMittens(sender, isAuto)
     end
 
     if sender then
-        SendChatMessage("Your paw mittens have been removed. Your paws and claws are free again nya~", "WHISPER", nil, sender)
+        SendChatMessage(CCT_Msg("PAW_MITTENS_REMOVE"), "WHISPER", nil, sender)
     end
 end
 

@@ -203,10 +203,10 @@ local function RunFiveMinuteCheck()
     checkPending = false
 
     if catSummoned then
-        SendGuildMessage("Was a good kitten and rembered to summon their Cat")
+        SendGuildMessage(CCT_Msg("PET_SUMMON_GOOD"))
         LogPetEvent("CatReminderGood")
     else
-        SendGuildMessage("Was a Bad Kitten and forgot to summon their cat")
+        SendGuildMessage(CCT_Msg("PET_SUMMON_BAD"))
         LogPetEvent("CatReminderBad")
     end
 end

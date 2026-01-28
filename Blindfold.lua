@@ -191,25 +191,25 @@ f:SetScript("OnEvent", function(_, event, msg, sender)
         BlindfoldSet("light")
         logBlindfoldState("light")
         CCT_RaidNotice("Blindfold applied: light.")
-        SendChatMessage("Oh Nyo a blurry light blindfold... should better Behave or it gets worse!", "WHISPER", nil, sender)
+        SendChatMessage(CCT_Msg("BLINDFOLD_LIGHT"), "WHISPER", nil, sender)
 
     elseif msg:find("kitty blindfold") then
         BlindfoldSet("mask")
         logBlindfoldState("mask")
         CCT_RaidNotice("Blindfold applied: kitty mask.")
-        SendChatMessage("Wearing a cute kitty blindfold... vision limited nya~", "WHISPER", nil, sender)
+        SendChatMessage(CCT_Msg("BLINDFOLD_KITTY"), "WHISPER", nil, sender)
 
     elseif msg:find("full blindfold") then
         BlindfoldSet("full")
         logBlindfoldState("full")
         CCT_RaidNotice("Blindfold applied: full.")
-        SendChatMessage("Can't see anything! It's all black nya!", "WHISPER", nil, sender)
+        SendChatMessage(CCT_Msg("BLINDFOLD_FULL"), "WHISPER", nil, sender)
 
     elseif msg:find("removed your blindfold") then
         BlindfoldSet("remove")
         logBlindfoldState("remove")
         CCT_RaidNotice("Blindfold removed.")
-        SendChatMessage("Blindfold removed... finally I can see again nya~", "WHISPER", nil, sender)
+        SendChatMessage(CCT_Msg("BLINDFOLD_REMOVE"), "WHISPER", nil, sender)
     end
 end)
 

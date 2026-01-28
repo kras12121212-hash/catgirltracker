@@ -122,19 +122,19 @@ local function napMonitor()
 
             if napDuration < 600 then
                 print("Woke up too early")
-                DebugSay("DEBUG: WokeUpToEarly")
+                DebugSay(CCT_Msg("NAP_DEBUG_WOKE_EARLY"))
                 logNapResult("WokeUpToEarly")
-                announceToGuild("Was told to take her kitty Nap but was a cranky kitten that got up to early")
+                announceToGuild(CCT_Msg("NAP_WOKE_EARLY"))
             elseif napDuration > 1200 then
                 print("Overslept")
-                DebugSay("DEBUG: Oversleept (after move)")
+                DebugSay(CCT_Msg("NAP_DEBUG_OVERSLEPT_MOVE"))
                 logNapResult("Oversleept")
-                announceToGuild("Was told to take a Nap but decided to sleep all day ! Bad Lazy Kitten !")
+                announceToGuild(CCT_Msg("NAP_OVERSLEPT"))
             else
                 print("Slept as told")
-                DebugSay("DEBUG: SleeptAsTold")
+                DebugSay(CCT_Msg("NAP_DEBUG_SLEPT_AS_TOLD"))
                 logNapResult("SleeptAsTold")
-                announceToGuild("Was a good kitten and took a nap as told make sure to give her headpets and praises Nya")
+                announceToGuild(CCT_Msg("NAP_SLEPT_AS_TOLD"))
             end
 
         elseif napDuration > 1200 then
@@ -142,18 +142,18 @@ local function napMonitor()
             napActive = false
             inNapWindow = false
             setNextNapTime()
-            DebugSay("DEBUG: Oversleept (no move)")
+            DebugSay(CCT_Msg("NAP_DEBUG_OVERSLEPT_NOMOVE"))
             logNapResult("Oversleept")
-            announceToGuild("Was told to take a Nap but decided to sleep all day ! Bad Lazy Kitten !")
+            announceToGuild(CCT_Msg("NAP_OVERSLEPT"))
         end
 
     elseif inNapWindow and not napActive and time() > napDeadline then
         print(" Nap not taken at all")
         inNapWindow = false
         setNextNapTime()
-        DebugSay("DEBUG: DidNotSleep")
+        DebugSay(CCT_Msg("NAP_DEBUG_DID_NOT_SLEEP"))
         logNapResult("DidNotSleep")
-        announceToGuild("Was told to take a Nap but did not Listen and should be punished by her owner.")
+        announceToGuild(CCT_Msg("NAP_DID_NOT_SLEEP"))
     end
 end
 

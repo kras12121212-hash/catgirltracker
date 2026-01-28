@@ -348,7 +348,7 @@ leashFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
             showPawIcon()
             logLeashEvent("KittenLeash", leasher)
 
-            SendChatMessage("You have clipped the leash onto " .. kittyname .. "... There's no escape now, nya~", "WHISPER", nil, sender)
+            SendChatMessage(CCT_Msg("LEASH_APPLY", kittyname), "WHISPER", nil, sender)
             print("|cffffff00CatgirlTracker:|r Leashed by " .. leasher .. " nya~")
             CCT_RaidNotice("Leash applied.")
 
@@ -359,7 +359,7 @@ leashFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
             isLeashed = false
             logLeashEvent("KittenUnleash", leasher)
 
-            SendChatMessage("The leash slips free from " .. kittyname .. ". She's free... for now nya~", "WHISPER", nil, sender)
+            SendChatMessage(CCT_Msg("LEASH_REMOVE", kittyname), "WHISPER", nil, sender)
             print("|cffffff00CatgirlTracker:|r Unleashed nya~")
             CCT_RaidNotice("Leash removed.")
             leasher = nil

@@ -73,7 +73,7 @@ C_Timer.NewTicker(10, function()
                 if (time() - lastSleepTime) < 1200 then
                     CCT_AutoPrint(" Catgirl is sleeping cutely, not slacking off.")
                 else
-                    local msg = "Was caught slagging off in the inn again nya!"
+                    local msg = CCT_Msg("INN_SLACKING")
                     CCT_AutoPrint(" Sending guild message:", msg)
                     if IsInGuild() then SendChatMessage(msg, "GUILD") end
 
