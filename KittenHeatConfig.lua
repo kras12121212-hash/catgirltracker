@@ -31,6 +31,25 @@ cfg.orgasm.texture = cfg.orgasm.texture or "Interface\\AddOns\\CatgirlTracker\\T
 cfg.orgasm.flashDuration = cfg.orgasm.flashDuration or 0.6
 cfg.orgasm.alpha = cfg.orgasm.alpha or 0.9
 
+-- Submissiveness heat flip configuration.
+-- If the kitten's submissiveness is at or above a threshold, negative heat deltas that are
+-- not more negative than the mapped value are flipped to positive heat.
+-- Example: [70] = -11 means at submissiveness >= 70, deltas from -11..-1 become +11..+1.
+if cfg.submissivenessHeatFlip == nil then
+    cfg.submissivenessHeatFlip = {
+        [10] = -1,
+        [20] = -2,
+        [30] = -3,
+        [40] = -5,
+        [50] = -7,
+        [60] = -10,
+        [70] = -11,
+        [80] = -13,
+        [90] = -15,
+        [100] = -20,
+    }
+end
+
 -- Toy heat configuration.
 -- base: heat added while the toy is applied.
 -- vibe/inflate: per-stage heat while vibration/inflation is active (stage 1-5).

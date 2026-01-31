@@ -1,4 +1,5 @@
 local kittyname = UnitName("player")
+local shortName = kittyname and kittyname:match("^[^%-]+") or kittyname
 
 local function GetNow()
     if GetTime then
@@ -58,10 +59,48 @@ local function AutoPrint(...)
     end
 end
 
+local function RequestGuildRoster()
+    if C_GuildInfo and C_GuildInfo.GuildRoster then
+        C_GuildInfo.GuildRoster()
+    elseif GuildRoster then
+        GuildRoster()
+    end
+end
+
+local function GetOwnerFromNote()
+    if not IsInGuild or not IsInGuild() then
+        return nil
+    end
+    RequestGuildRoster()
+    for i = 1, GetNumGuildMembers() do
+        local name, _, _, _, _, _, _, note, officerNote = GetGuildRosterInfo(i)
+        if name and name:match("^[^%-]+") == shortName then
+            local source = nil
+            if type(officerNote) == "string" and officerNote ~= "" then
+                source = officerNote
+            elseif type(note) == "string" and note ~= "" then
+                source = note
+            end
+            local ownerName = source and source:match("owner=([^,]+)")
+            if ownerName and ownerName ~= "" then
+                return ownerName
+            end
+        end
+    end
+end
+
+local function IsKitten()
+    local owner = GetOwnerFromNote()
+    return owner and owner ~= ""
+end
+
 local cfg = CCT_HeatConfig or {}
 local heatData = nil
 local heatValue = 0
 local lastUpdateAt = 0
+local heatTicker = nil
+local heatInitialized = false
+local kittenActive = false
 
 local decayExponent = 0.7
 local decayK = 0.2
@@ -72,6 +111,7 @@ local lastLogIndex = 0
 
 local heatBar = nil
 local orgasmFrame = nil
+local UpdateHeat = nil
 
 local function ClampNumber(value, minValue, maxValue)
     if value < minValue then
@@ -81,6 +121,66 @@ local function ClampNumber(value, minValue, maxValue)
         return maxValue
     end
     return value
+end
+
+local function GetLatestSubmissiveness()
+    local log = GetBehaviorLog()
+    if type(log) ~= "table" then
+        return nil
+    end
+    for i = #log, 1, -1 do
+        local entry = log[i]
+        if entry and entry.event == "KittenSubmissiveness" then
+            local value = tonumber(entry.state)
+            if value then
+                return ClampNumber(value, 0, 100)
+            end
+        end
+    end
+    return nil
+end
+
+local function GetSubmissivenessHeatFlipLimit(submissiveness)
+    local map = cfg and cfg.submissivenessHeatFlip
+    if type(map) ~= "table" then
+        return nil
+    end
+    local bestThreshold = nil
+    local bestLimit = nil
+
+    local function Consider(threshold, limit)
+        local threshNum = tonumber(threshold)
+        local limitNum = tonumber(limit)
+        if not threshNum or not limitNum then
+            return
+        end
+        if limitNum > 0 then
+            limitNum = -limitNum
+        end
+        if submissiveness >= threshNum then
+            if not bestThreshold or threshNum > bestThreshold then
+                bestThreshold = threshNum
+                bestLimit = limitNum
+            end
+        end
+    end
+
+    if #map > 0 then
+        for _, entry in ipairs(map) do
+            if type(entry) == "table" then
+                Consider(entry.submissiveness or entry.threshold or entry.level or entry[1],
+                    entry.maxNegative or entry.limit or entry.value or entry[2])
+            end
+        end
+    end
+
+    for threshold, limit in pairs(map) do
+        if type(threshold) == "number" then
+            Consider(threshold, limit)
+        end
+    end
+
+    return bestLimit
 end
 
 local function Lerp(a, b, t)
@@ -262,6 +362,14 @@ local function AddHeatDelta(amount)
         AddHeat(delta)
         return
     end
+    local submissiveness = GetLatestSubmissiveness()
+    if submissiveness then
+        local limit = GetSubmissivenessHeatFlipLimit(submissiveness)
+        if limit and delta >= limit then
+            AddHeat(-delta)
+            return
+        end
+    end
     heatValue = ClampNumber(heatValue + delta, 0, 100)
     if heatData then
         heatData.heat = heatValue
@@ -270,6 +378,9 @@ local function AddHeatDelta(amount)
 end
 
 function CCT_AddHeatDelta(amount)
+    if not kittenActive then
+        return
+    end
     AddHeatDelta(amount)
 end
 
@@ -508,7 +619,49 @@ local function BuildOrgasmFrame()
     orgasmFrame.texture:SetAllPoints()
 end
 
-local function UpdateHeat(dt)
+local function RefreshHeatFromStorage()
+    if not heatData then
+        return
+    end
+    local nowUnix = GetUnixTime()
+    local offlineDelta = nowUnix - (heatData.lastUnixUpdate or nowUnix)
+    if offlineDelta > 0 then
+        heatValue = ApplyDecayExact(heatData.heat, offlineDelta)
+    else
+        heatValue = heatData.heat
+    end
+    heatValue = ClampNumber(heatValue, 0, 100)
+    heatData.heat = heatValue
+    heatData.lastUnixUpdate = nowUnix
+    lastUpdateAt = GetNow()
+    UpdateHeatBar()
+end
+
+local function StartHeatTicker()
+    if heatTicker then
+        return
+    end
+    local updateInterval = tonumber(cfg.updateInterval) or 0.25
+    if updateInterval < 0.05 then
+        updateInterval = 0.05
+    end
+    lastUpdateAt = GetNow()
+    heatTicker = C_Timer.NewTicker(updateInterval, function()
+        local now = GetNow()
+        local dt = now - lastUpdateAt
+        lastUpdateAt = now
+        UpdateHeat(dt)
+    end)
+end
+
+local function StopHeatTicker()
+    if heatTicker then
+        heatTicker:Cancel()
+        heatTicker = nil
+    end
+end
+
+UpdateHeat = function(dt)
     if dt <= 0 then
         return
     end
@@ -524,6 +677,10 @@ local function UpdateHeat(dt)
 end
 
 local function InitializeHeat()
+    if heatInitialized then
+        return
+    end
+    heatInitialized = true
     heatData = GetHeatData()
     cfg = CCT_HeatConfig or cfg
     RebuildDecayConstants()
@@ -534,41 +691,36 @@ local function InitializeHeat()
     BuildHeatBar()
     BuildOrgasmFrame()
 
-    local nowUnix = GetUnixTime()
-    local offlineDelta = nowUnix - (heatData.lastUnixUpdate or nowUnix)
-    if offlineDelta > 0 then
-        heatValue = ApplyDecayExact(heatData.heat, offlineDelta)
-    else
-        heatValue = heatData.heat
-    end
-
-    heatValue = ClampNumber(heatValue, 0, 100)
-    heatData.heat = heatValue
-    heatData.lastUnixUpdate = nowUnix
-    lastUpdateAt = GetNow()
-
-    UpdateHeatBar()
+    RefreshHeatFromStorage()
     LogBehaviorEvent("KittenHeat", math.floor(heatValue + 0.5))
     heatData.lastSyncAt = GetUnixTime()
     heatData.lastSyncHeat = heatValue
 
-    local updateInterval = tonumber(cfg.updateInterval) or 0.25
-    if updateInterval < 0.05 then
-        updateInterval = 0.05
-    end
-
-    C_Timer.NewTicker(updateInterval, function()
-        local now = GetNow()
-        local dt = now - lastUpdateAt
-        lastUpdateAt = now
-        UpdateHeat(dt)
-    end)
-
     AutoPrint("KittenHeat loaded.")
 end
 
+local function RefreshKittenState()
+    kittenActive = IsKitten() and true or false
+    if kittenActive then
+        InitializeHeat()
+        RefreshHeatFromStorage()
+        if heatBar then
+            heatBar:Show()
+        end
+        StartHeatTicker()
+    else
+        StopHeatTicker()
+        if heatBar then
+            heatBar:Hide()
+        end
+        if orgasmFrame then
+            orgasmFrame:Hide()
+        end
+    end
+end
+
 function CCT_AddHeat(amount)
-    if not heatData then
+    if not heatData or not kittenActive then
         return
     end
     local value = tonumber(amount) or 0
@@ -576,13 +728,21 @@ function CCT_AddHeat(amount)
 end
 
 function CCT_GetHeat()
+    if not kittenActive then
+        return 0
+    end
     return heatValue
 end
 
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
+f:RegisterEvent("GUILD_ROSTER_UPDATE")
 f:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_LOGIN" then
-        InitializeHeat()
+        C_Timer.After(1.0, RefreshKittenState)
+        return
+    end
+    if event == "GUILD_ROSTER_UPDATE" then
+        RefreshKittenState()
     end
 end)
