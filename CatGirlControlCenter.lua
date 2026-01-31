@@ -240,6 +240,94 @@ local function GetLeashState(log)
     return "Unknown"
 end
 
+local function GetStartOfDay(now)
+    local t = date("*t", now)
+    t.hour = 0
+    t.min = 0
+    t.sec = 0
+    return time(t)
+end
+
+local function GetStartOfWeek(now)
+    local t = date("*t", now)
+    t.hour = 0
+    t.min = 0
+    t.sec = 0
+    local midnight = time(t)
+    local wday = t.wday or 1 -- Sunday = 1
+    local daysFromMonday = (wday + 5) % 7
+    return midnight - (daysFromMonday * 86400)
+end
+
+local function GetKittenHeatValue(log)
+    local entry = FindLastEvent(log, "KittenHeat")
+    if entry and entry.state ~= nil then
+        local value = tonumber(entry.state)
+        if value then
+            return math.max(0, math.min(100, value))
+        end
+    end
+    return 0
+end
+
+local function GetOrgasmStats(log)
+    local total, today, week = 0, 0, 0
+    local lastEntry = nil
+    if not log or type(log) ~= "table" then
+        return total, today, week, lastEntry
+    end
+    local now = time()
+    local dayStart = GetStartOfDay(now)
+    local weekStart = GetStartOfWeek(now)
+    for i = 1, #log do
+        local entry = log[i]
+        if entry and entry.event == "KittenOrgasm" then
+            total = total + 1
+            if entry.unixtime then
+                if entry.unixtime >= dayStart then
+                    today = today + 1
+                end
+                if entry.unixtime >= weekStart then
+                    week = week + 1
+                end
+            end
+            lastEntry = entry
+        end
+    end
+    return total, today, week, lastEntry
+end
+
+local function FormatOrgasmTimestamp(entry)
+    if not entry then
+        return "Never"
+    end
+    if entry.timestamp and entry.timestamp ~= "" then
+        return entry.timestamp
+    end
+    if entry.unixtime then
+        return date("%Y-%m-%d %H:%M", entry.unixtime)
+    end
+    return "Unknown"
+end
+
+local function GetHeatBarColor(value)
+    local colors = CCT_HeatConfig and CCT_HeatConfig.colors or nil
+    local low = colors and colors.low or { 0.0, 0.45, 1.0 }
+    local mid = colors and colors.mid or { 1.0, 0.35, 0.75 }
+    local high = colors and colors.high or { 1.0, 0.0, 0.0 }
+    local pct = math.max(0, math.min(1, (value or 0) / 100))
+    if pct <= 0.5 then
+        local t = pct / 0.5
+        return low[1] + (mid[1] - low[1]) * t,
+            low[2] + (mid[2] - low[2]) * t,
+            low[3] + (mid[3] - low[3]) * t
+    end
+    local t = (pct - 0.5) / 0.5
+    return mid[1] + (high[1] - mid[1]) * t,
+        mid[2] + (high[2] - mid[2]) * t,
+        mid[3] + (high[3] - mid[3]) * t
+end
+
 local function GetAppliedBindIconFiles(log)
     local icons = {}
     if not log or type(log) ~= "table" then
@@ -326,7 +414,7 @@ end
 
 local function BuildStatsSections(kittenName)
     if not kittenName or kittenName == "" then
-        return { "No data synced for this kitten yet." }, {}, {}
+        return { "No data synced for this kitten yet." }, {}, {}, 0
     end
     local kittenKey = ShortName(kittenName)
     local log = CatgirlBehaviorDB
@@ -334,7 +422,7 @@ local function BuildStatsSections(kittenName)
         and CatgirlBehaviorDB.BehaviorLog[kittenKey]
 
     if not log or type(log) ~= "table" then
-        return { "No data synced for this kitten yet." }, {}, {}
+        return { "No data synced for this kitten yet." }, {}, {}, 0
     end
 
     local appliedLines = {}
@@ -418,7 +506,18 @@ local function BuildStatsSections(kittenName)
         table.insert(otherLines, "Timed removals: none")
     end
 
-    return appliedLines, otherLines, GetAppliedBindIconFiles(log)
+    local heatValue = GetKittenHeatValue(log)
+    local orgasmTotal, orgasmToday, orgasmWeek, lastOrgasm = GetOrgasmStats(log)
+
+    table.insert(otherLines, "")
+    table.insert(otherLines, "Kitten Heat Stats")
+    table.insert(otherLines, string.format("Kitten Heat Bar: %d / 100", heatValue))
+    table.insert(otherLines, "Orgasm Counter: " .. tostring(orgasmTotal))
+    table.insert(otherLines, "Last Orgasm: " .. FormatOrgasmTimestamp(lastOrgasm))
+    table.insert(otherLines, "Orgasms Today: " .. tostring(orgasmToday))
+    table.insert(otherLines, "Orgasms This Week: " .. tostring(orgasmWeek))
+
+    return appliedLines, otherLines, GetAppliedBindIconFiles(log), heatValue
 end
 
 -- Create control panel UI
@@ -674,12 +773,31 @@ local function ShowControlPanel(kitten)
     statsRestText:SetWidth(280)
     statsRestText:SetText("")
 
+    local kittenHeatBar = CreateFrame("StatusBar", nil, statsContent, "BackdropTemplate")
+    kittenHeatBar:SetSize(260, 14)
+    kittenHeatBar:SetStatusBarTexture("Interface\\TARGETINGFRAME\\UI-StatusBar")
+    kittenHeatBar:SetMinMaxValues(0, 100)
+    kittenHeatBar:SetValue(0)
+    kittenHeatBar:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileSize = 16,
+        edgeSize = 8,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 }
+    })
+    kittenHeatBar:SetBackdropColor(0, 0, 0, 0.6)
+    kittenHeatBar.text = kittenHeatBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    kittenHeatBar.text:SetPoint("CENTER")
+    kittenHeatBar.text:SetText("Kitten Heat Bar: 0")
+    kittenHeatBar:Hide()
+
     local statsIconTextures = {}
 
     frame.UpdateStats = function(self)
         local noKitten = not self.kitten
         warningText:SetShown(noKitten)
-        local appliedLines, otherLines, iconFiles = BuildStatsSections(self.kitten)
+        local appliedLines, otherLines, iconFiles, heatValue = BuildStatsSections(self.kitten)
         statsAppliedText:SetText(table.concat(appliedLines, "\n"))
         statsRestText:SetText(table.concat(otherLines, "\n"))
         local lineHeight = 14
@@ -739,6 +857,21 @@ local function ShowControlPanel(kitten)
             statsRestText:SetPoint("TOPLEFT", statsAppliedText, "BOTTOMLEFT", 0, 0)
         end
 
+        kittenHeatBar:ClearAllPoints()
+        local showHeatBar = not noKitten
+        if showHeatBar then
+            kittenHeatBar:SetPoint("TOPLEFT", statsRestText, "BOTTOMLEFT", 0, -statsSectionSpacing)
+            local displayValue = tonumber(heatValue) or 0
+            displayValue = math.max(0, math.min(100, displayValue))
+            kittenHeatBar:SetValue(displayValue)
+            local r, g, b = GetHeatBarColor(displayValue)
+            kittenHeatBar:SetStatusBarColor(r, g, b)
+            kittenHeatBar.text:SetText(string.format("Kitten Heat Bar: %d / 100", displayValue))
+            kittenHeatBar:Show()
+        else
+            kittenHeatBar:Hide()
+        end
+
         local height = 70 + appliedHeight
         if iconCount > 0 then
             height = height + statsSectionSpacing + iconsHeight
@@ -749,6 +882,9 @@ local function ShowControlPanel(kitten)
             if otherHeight > 0 then
                 height = height + otherHeight
             end
+        end
+        if showHeatBar then
+            height = height + statsSectionSpacing + kittenHeatBar:GetHeight()
         end
         height = height + 20
         if noKitten then
