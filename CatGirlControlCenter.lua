@@ -2,6 +2,7 @@
 local f = CreateFrame("Frame")
 local kittyname = UnitName("player"):match("^[^%-]+") -- short name only
 local controlOpenButton = nil
+local addonPrefix = "CatgirlTracker"
 
 SLASH_CGCC1 = "/cgcc"
 
@@ -33,6 +34,20 @@ local function WhisperToKitten(kitten, command)
     if kitten then
         SendChatMessage(command, "WHISPER", nil, kitten)
     end
+end
+
+local function SendAddonToKitten(kitten, command)
+    if not kitten then
+        return
+    end
+    if C_ChatInfo and C_ChatInfo.SendAddonMessage then
+        if C_ChatInfo.RegisterAddonMessagePrefix then
+            C_ChatInfo.RegisterAddonMessagePrefix(addonPrefix)
+        end
+        C_ChatInfo.SendAddonMessage(addonPrefix, command, "WHISPER", kitten)
+        return
+    end
+    WhisperToKitten(kitten, command)
 end
 
 local function ShortName(name)
@@ -184,6 +199,120 @@ local function FormatChastityBeltMode(beltEntry, modeEntry)
         return "Orgasm Denied"
     end
     return "Orgasm Allowed"
+end
+
+local function FormatToyApplied(value)
+    if value == nil then
+        return "Unknown"
+    end
+    return value and "Applied" or "Not applied"
+end
+
+local function FormatToyStage(value)
+    local num = tonumber(value) or 0
+    if num <= 0 then
+        return "Off"
+    end
+    return tostring(math.floor(num + 0.5))
+end
+
+local TOY_DEFS = {
+    {
+        id = "dildo",
+        label = "Dildo",
+        icon = "Textures/Dildo.tga",
+        vibe = true,
+        shock = true,
+        restrict = "belt",
+    },
+    {
+        id = "inflatable_butplug",
+        label = "Inflatable Butplug",
+        icon = "Textures/InflatableButplug.tga",
+        inflate = true,
+        restrict = "belt",
+    },
+    {
+        id = "inflatable_dildo",
+        label = "Inflatable Dildo",
+        icon = "Textures/InflatableDildo.tga",
+        inflate = true,
+        restrict = "belt",
+    },
+    {
+        id = "small_butplug",
+        label = "Small Butplug",
+        icon = "Textures/SmallButplug.tga",
+        restrict = "belt",
+    },
+    {
+        id = "large_butplug",
+        label = "Large Butplug",
+        icon = "Textures/LargeButplug.tga",
+        restrict = "belt",
+    },
+    {
+        id = "taill_butplug",
+        label = "Taill Butplug",
+        icon = "Textures/TaillButplug.tga",
+        restrict = "belt",
+    },
+    {
+        id = "vibes_pussy",
+        label = "Vibes Pussy",
+        icon = "Textures/Vibes.tga",
+        vibe = true,
+        restrict = "belt",
+    },
+    {
+        id = "vibes_nipples",
+        label = "Vibes Nipples",
+        icon = "Textures/Vibes.tga",
+        vibe = true,
+        restrict = "bra",
+    },
+    {
+        id = "vibes_ears",
+        label = "Vibes Ears",
+        icon = "Textures/Vibes.tga",
+        vibe = true,
+        shock = true,
+    },
+    {
+        id = "nipple_piercings",
+        label = "Nipple Piercings",
+        icon = "Textures/Piercings.tga",
+        vibe = true,
+        shock = true,
+        restrict = "bra",
+    },
+    {
+        id = "ear_piercings",
+        label = "Ear Piercings",
+        icon = "Textures/Piercings.tga",
+        vibe = true,
+        shock = true,
+    },
+    {
+        id = "pussy_lipps_piercings",
+        label = "Pussy Lipps Piercings",
+        icon = "Textures/Piercings.tga",
+        vibe = true,
+        shock = true,
+        restrict = "belt",
+    },
+}
+
+local function ToyEventName(id)
+    return "Toy_" .. id
+end
+
+local function ToyVibeEventName(id)
+    return "Toy_" .. id .. "_Vibe"
+end
+
+local function ToyInflateEventName(id)
+    return "Toy_" .. id .. "_Inflate"
 end
 
 local function FormatCoords(entry)
@@ -471,6 +600,13 @@ local function GetAppliedBindIconFiles(log)
         addIcon("chastitybra.tga")
     end
 
+    for _, toy in ipairs(TOY_DEFS) do
+        local toyEntry = FindLastEvent(log, ToyEventName(toy.id))
+        if toyEntry and toyEntry.state == true then
+            addIcon(toy.icon)
+        end
+    end
+
     if GetLeashState(log) == "Leashed" then
         addIcon("leash-232-with-gb_ergebnis.tga")
     end
@@ -479,8 +615,19 @@ local function GetAppliedBindIconFiles(log)
 end
 
 local function BuildStatsSections(kittenName)
+    local sections = {
+        controls = {},
+        toys = {},
+        other = {},
+        skills = {},
+        heat = {},
+        location = {},
+        icons = {},
+        heatValue = 0,
+    }
     if not kittenName or kittenName == "" then
-        return { "No data synced for this kitten yet." }, {}, {}, 0
+        sections.controls = { "No data synced for this kitten yet." }
+        return sections
     end
     local kittenKey = ShortName(kittenName)
     local log = CatgirlBehaviorDB
@@ -488,65 +635,80 @@ local function BuildStatsSections(kittenName)
         and CatgirlBehaviorDB.BehaviorLog[kittenKey]
 
     if not log or type(log) ~= "table" then
-        return { "No data synced for this kitten yet." }, {}, {}, 0
+        sections.controls = { "No data synced for this kitten yet." }
+        return sections
     end
 
-    local appliedLines = {}
-    table.insert(appliedLines, "Applied binds:")
+    local controlsLines = {}
 
     local gagEntry = FindLastEvent(log, "KittenGag")
-    table.insert(appliedLines, "Gag: " .. FormatGagState(gagEntry and gagEntry.Gagstate))
+    table.insert(controlsLines, "Gag: " .. FormatGagState(gagEntry and gagEntry.Gagstate))
 
     local blindEntry = FindLastEvent(log, "KittenBlindfold")
-    table.insert(appliedLines, "Blindfold: " .. FormatBlindfoldState(blindEntry and blindEntry.BlindfoldState))
+    table.insert(controlsLines, "Blindfold: " .. FormatBlindfoldState(blindEntry and blindEntry.BlindfoldState))
 
     local earEntry = FindLastEvent(log, "KittenEarmuffs")
-    table.insert(appliedLines, "Earmuffs: " .. FormatEarmuffState(earEntry and earEntry.state))
+    table.insert(controlsLines, "Earmuffs: " .. FormatEarmuffState(earEntry and earEntry.state))
 
     local mittensEntry = FindLastEvent(log, "PawMittens")
-    table.insert(appliedLines, "Paw Mittens: " .. FormatMittensState(mittensEntry and mittensEntry.state))
+    table.insert(controlsLines, "Paw Mittens: " .. FormatMittensState(mittensEntry and mittensEntry.state))
 
     local heelsEntry = FindLastEvent(log, "KittenHeels")
-    table.insert(appliedLines, "Heels: " .. FormatHeelsState(heelsEntry and heelsEntry.state))
+    table.insert(controlsLines, "Heels: " .. FormatHeelsState(heelsEntry and heelsEntry.state))
 
     local bellEntry = FindLastEvent(log, "BellState")
-    table.insert(appliedLines, "Bell: " .. FormatBooleanState(bellEntry and bellEntry.state))
+    table.insert(controlsLines, "Bell: " .. FormatBooleanState(bellEntry and bellEntry.state))
 
     local tailEntry = FindLastEvent(log, "TailBellState")
-    table.insert(appliedLines, "Tail Bell: " .. FormatBooleanState(tailEntry and tailEntry.state))
+    table.insert(controlsLines, "Tail Bell: " .. FormatBooleanState(tailEntry and tailEntry.state))
 
     local trackingEntry = FindLastEvent(log, "TrackingJewel")
-    table.insert(appliedLines, "Tracking Jewel: " .. FormatBooleanState(trackingEntry and trackingEntry.state))
+    table.insert(controlsLines, "Tracking Jewel: " .. FormatBooleanState(trackingEntry and trackingEntry.state))
 
     local beltEntry = FindLastEvent(log, "ChastityBelt")
     local beltModeEntry = FindLastEvent(log, "ChastityBeltMode")
-    table.insert(appliedLines, "Chastity Belt: " .. FormatChastityBeltState(beltEntry, beltModeEntry))
-    table.insert(appliedLines, "Belt state: " .. FormatChastityBeltMode(beltEntry, beltModeEntry))
+    table.insert(controlsLines, "Chastity Belt: " .. FormatChastityBeltState(beltEntry, beltModeEntry))
+    table.insert(controlsLines, "Belt state: " .. FormatChastityBeltMode(beltEntry, beltModeEntry))
 
     local braEntry = FindLastEvent(log, "ChastityBra")
-    table.insert(appliedLines, "Chastity Bra: " .. FormatChastityBraState(braEntry))
+    table.insert(controlsLines, "Chastity Bra: " .. FormatChastityBraState(braEntry))
 
-    table.insert(appliedLines, "Leash: " .. GetLeashState(log))
+    table.insert(controlsLines, "Leash: " .. GetLeashState(log))
+
+    local toysLines = {}
+    for _, toy in ipairs(TOY_DEFS) do
+        local toyEntry = FindLastEvent(log, ToyEventName(toy.id))
+        table.insert(toysLines, string.format("%s: %s", toy.label, FormatToyApplied(toyEntry and toyEntry.state)))
+        if toy.vibe then
+            local vibeEntry = FindLastEvent(log, ToyVibeEventName(toy.id))
+            table.insert(toysLines, "  Vibration intensity: " .. FormatToyStage(vibeEntry and vibeEntry.state))
+        end
+        if toy.inflate then
+            local inflateEntry = FindLastEvent(log, ToyInflateEventName(toy.id))
+            table.insert(toysLines, "  Inflation stage: " .. FormatToyStage(inflateEntry and inflateEntry.state))
+        end
+    end
 
     local otherLines = {}
+    local locationLines = {}
     local locationLog = CatgirlLocationDB
         and CatgirlLocationDB.LocationLog
         and CatgirlLocationDB.LocationLog[kittenKey]
     if locationLog and #locationLog > 0 then
         local lastLocation = locationLog[#locationLog]
-        table.insert(otherLines, "Last Location Sync: " .. FormatCoords(lastLocation))
-        table.insert(otherLines, FormatDistanceToKitten(lastLocation))
+        table.insert(locationLines, "Last Location Sync: " .. FormatCoords(lastLocation))
+        table.insert(locationLines, FormatDistanceToKitten(lastLocation))
     else
-        table.insert(otherLines, "Last Location Sync: None")
-        table.insert(otherLines, "Distance to kitten: Unknown")
+        table.insert(locationLines, "Last Location Sync: None")
+        table.insert(locationLines, "Distance to kitten: Unknown")
     end
 
     local heelsSkills = GetHeelsSkillLevels(log)
-    table.insert(otherLines, "")
-    table.insert(otherLines, "Kitten Skills:")
-    table.insert(otherLines, "Maid heels: " .. FormatSkillLevel(heelsSkills.maid))
-    table.insert(otherLines, "High heels: " .. FormatSkillLevel(heelsSkills.high))
-    table.insert(otherLines, "Ballet boots: " .. FormatSkillLevel(heelsSkills.ballet))
+    local skillsLines = {
+        "Maid heels: " .. FormatSkillLevel(heelsSkills.maid),
+        "High heels: " .. FormatSkillLevel(heelsSkills.high),
+        "Ballet boots: " .. FormatSkillLevel(heelsSkills.ballet),
+    }
 
     local timerLines = {}
     local timerKeys = {
@@ -572,7 +734,6 @@ local function BuildStatsSections(kittenName)
         end
     end
 
-    table.insert(otherLines, "")
     if #timerLines > 0 then
         table.insert(otherLines, "Timed removals:")
         for _, line in ipairs(timerLines) do
@@ -586,17 +747,25 @@ local function BuildStatsSections(kittenName)
     local orgasmTotal, orgasmToday, orgasmWeek, lastOrgasm = GetOrgasmStats(log)
     local deniedTotal, deniedSession = GetDeniedOrgasmStats(log)
 
-    table.insert(otherLines, "")
-    table.insert(otherLines, "Kitten Heat Stats")
-    table.insert(otherLines, string.format("Kitten Heat Bar: %d / 100", heatValue))
-    table.insert(otherLines, "Orgasm Counter: " .. tostring(orgasmTotal))
-    table.insert(otherLines, "Last Orgasm: " .. FormatOrgasmTimestamp(lastOrgasm))
-    table.insert(otherLines, "Orgasms Today: " .. tostring(orgasmToday))
-    table.insert(otherLines, "Orgasms This Week: " .. tostring(orgasmWeek))
-    table.insert(otherLines, "Denied Orgasms: " .. tostring(deniedTotal))
-    table.insert(otherLines, "Denied Orgasms This Session: " .. tostring(deniedSession))
+    local heatLines = {
+        string.format("Kitten Heat Bar: %d / 100", heatValue),
+        "Orgasm Counter: " .. tostring(orgasmTotal),
+        "Last Orgasm: " .. FormatOrgasmTimestamp(lastOrgasm),
+        "Orgasms Today: " .. tostring(orgasmToday),
+        "Orgasms This Week: " .. tostring(orgasmWeek),
+        "Denied Orgasms: " .. tostring(deniedTotal),
+        "Denied Orgasms This Session: " .. tostring(deniedSession),
+    }
 
-    return appliedLines, otherLines, GetAppliedBindIconFiles(log), heatValue
+    sections.controls = controlsLines
+    sections.toys = toysLines
+    sections.other = otherLines
+    sections.skills = skillsLines
+    sections.heat = heatLines
+    sections.location = locationLines
+    sections.icons = GetAppliedBindIconFiles(log)
+    sections.heatValue = heatValue
+    return sections
 end
 
 -- Create control panel UI
@@ -672,6 +841,9 @@ local function ShowControlPanel(kitten)
     local function BuildControlIconPath(fileName)
         if not fileName or fileName == "" then
             return nil
+        end
+        if fileName:find("[/\\]") then
+            return "Interface\\AddOns\\CatgirlTracker\\" .. fileName:gsub("/", "\\")
         end
         return CGCC_TEXTURE_PATH .. fileName
     end
@@ -752,6 +924,13 @@ local function ShowControlPanel(kitten)
         return y - 24
     end
 
+    local function BuildToyCommand(toyId, action, level)
+        if level ~= nil then
+            return string.format("cctoy %s %s %s", toyId, action, tostring(level))
+        end
+        return string.format("cctoy %s %s", toyId, action)
+    end
+
     local function IsChastityBeltActive()
         if not frame.kitten or frame.kitten == "" then
             return false
@@ -765,6 +944,112 @@ local function ShowControlPanel(kitten)
         end
         local beltEntry = FindLastEvent(log, "ChastityBelt")
         return beltEntry and beltEntry.state == true
+    end
+
+    local function IsChastityBraActive()
+        if not frame.kitten or frame.kitten == "" then
+            return false
+        end
+        local kittenKey = ShortName(frame.kitten)
+        local log = CatgirlBehaviorDB
+            and CatgirlBehaviorDB.BehaviorLog
+            and CatgirlBehaviorDB.BehaviorLog[kittenKey]
+        if not log or type(log) ~= "table" then
+            return false
+        end
+        local braEntry = FindLastEvent(log, "ChastityBra")
+        return braEntry and braEntry.state == true
+    end
+
+    local function AddToyButton(parent, y, label, toy, action, iconFile)
+        local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+        btn:SetSize(240, 20)
+        btn:SetPoint("TOPLEFT", 0, y)
+        btn:SetText(label)
+        btn:SetScript("OnClick", function()
+            if action == "apply" or action == "remove" then
+                if toy.restrict == "belt" and IsChastityBeltActive() then
+                    print("|cffff5555[CatGirlControlCenter]|r Cannot change this toy while a chastity belt is locked.")
+                    return
+                end
+                if toy.restrict == "bra" and IsChastityBraActive() then
+                    print("|cffff5555[CatGirlControlCenter]|r Cannot change this toy while a chastity bra is locked.")
+                    return
+                end
+            end
+            SendAddonToKitten(frame.kitten, BuildToyCommand(toy.id, action))
+        end)
+        if iconFile then
+            local iconPath = BuildControlIconPath(iconFile)
+            btn:SetScript("OnEnter", function(self)
+                ShowControlIconPreview(self, iconPath)
+            end)
+            btn:SetScript("OnLeave", function()
+                HideControlIconPreview()
+            end)
+
+            local iconButton = CreateFrame("Button", nil, parent)
+            iconButton:SetSize(CONTROL_ICON_SIZE, CONTROL_ICON_SIZE)
+            iconButton:SetPoint("LEFT", btn, "RIGHT", 6, 0)
+            iconButton:EnableMouse(true)
+
+            local icon = iconButton:CreateTexture(nil, "ARTWORK")
+            icon:SetAllPoints(iconButton)
+            icon:SetTexture(iconPath)
+
+            iconButton:SetScript("OnEnter", function(self)
+                ShowControlIconPreview(self, iconPath)
+            end)
+            iconButton:SetScript("OnLeave", function()
+                HideControlIconPreview()
+            end)
+        end
+        return y - 24
+    end
+
+    local function AddToyIntensityRow(parent, y, label, toy, action, maxLevel)
+        local text = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        text:SetPoint("TOPLEFT", 0, y)
+        text:SetText(label)
+
+        local btnWidth = 22
+        local btnHeight = 20
+        local startX = 140
+        local spacing = 4
+        for i = 1, maxLevel do
+            local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+            btn:SetSize(btnWidth, btnHeight)
+            btn:SetPoint("TOPLEFT", startX + (i - 1) * (btnWidth + spacing), y)
+            btn:SetText(tostring(i))
+            btn:SetScript("OnClick", function()
+                SendAddonToKitten(frame.kitten, BuildToyCommand(toy.id, action, i))
+            end)
+        end
+        return y - 24
+    end
+
+    local function AddToyInflateRow(parent, y, toy)
+        local text = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        text:SetPoint("TOPLEFT", 0, y)
+        text:SetText("Inflation")
+
+        local inflateBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+        inflateBtn:SetSize(70, 20)
+        inflateBtn:SetPoint("TOPLEFT", 140, y)
+        inflateBtn:SetText("Inflate")
+        inflateBtn:SetScript("OnClick", function()
+            SendAddonToKitten(frame.kitten, BuildToyCommand(toy.id, "inflate"))
+        end)
+
+        local deflateBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+        deflateBtn:SetSize(70, 20)
+        deflateBtn:SetPoint("LEFT", inflateBtn, "RIGHT", 6, 0)
+        deflateBtn:SetText("Deflate")
+        deflateBtn:SetScript("OnClick", function()
+            SendAddonToKitten(frame.kitten, BuildToyCommand(toy.id, "deflate"))
+        end)
+
+        return y - 24
     end
 
     local function AddChastityModeButton(parent, y, label, command)
@@ -824,12 +1109,15 @@ local function ShowControlPanel(kitten)
         return cb, y - 24
     end
 
-    local tabNames = { "Stats", "Control", "Discipline", "Settings" }
+    local tabNames = { "Stats", "Control", "Toys", "Discipline", "Settings" }
     local tabButtons = {}
     local tabFrames = {}
 
-    local tabWidth = 80
     local tabSpacing = 4
+    local tabWidth = math.floor((frame:GetWidth() - 20 - (tabSpacing * (#tabNames - 1))) / #tabNames)
+    if tabWidth < 60 then
+        tabWidth = 60
+    end
     for i, name in ipairs(tabNames) do
         local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
         btn:SetSize(tabWidth, 20)
@@ -858,29 +1146,88 @@ local function ShowControlPanel(kitten)
     refreshBtn:SetText("Refresh")
 
     local warningText = statsContent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    warningText:SetPoint("TOPLEFT", 0, -26)
+    warningText:SetPoint("TOPLEFT", refreshBtn, "BOTTOMLEFT", 0, -6)
     warningText:SetJustifyH("LEFT")
     warningText:SetWidth(280)
     warningText:SetTextColor(1, 0.1, 0.1)
     warningText:SetText("You dont own a kitten yet most Functions not avilable!!!")
     warningText:Hide()
 
-    local statsAppliedText = statsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    statsAppliedText:SetPoint("TOPLEFT", 0, -70)
-    statsAppliedText:SetJustifyH("LEFT")
-    statsAppliedText:SetWidth(280)
-    statsAppliedText:SetText("")
+    local controlsStatusHeader = statsContent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    controlsStatusHeader:SetPoint("TOPLEFT", refreshBtn, "BOTTOMLEFT", 0, 0)
+    controlsStatusHeader:SetJustifyH("LEFT")
+    controlsStatusHeader:SetWidth(280)
+    controlsStatusHeader:SetTextColor(1, 0.2, 0.2)
+    controlsStatusHeader:SetText("Controls Status")
+
+    local statsControlsText = statsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    statsControlsText:SetPoint("TOPLEFT", controlsStatusHeader, "BOTTOMLEFT", 0, 0)
+    statsControlsText:SetJustifyH("LEFT")
+    statsControlsText:SetWidth(280)
+    statsControlsText:SetText("")
+
+    local toysHeader = statsContent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    toysHeader:SetPoint("TOPLEFT", statsControlsText, "BOTTOMLEFT", 0, 0)
+    toysHeader:SetJustifyH("LEFT")
+    toysHeader:SetWidth(280)
+    toysHeader:SetTextColor(1, 0.2, 0.2)
+    toysHeader:SetText("Toys")
+
+    local statsToysText = statsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    statsToysText:SetPoint("TOPLEFT", toysHeader, "BOTTOMLEFT", 0, 0)
+    statsToysText:SetJustifyH("LEFT")
+    statsToysText:SetWidth(280)
+    statsToysText:SetText("")
+
+    local gearHeader = statsContent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    gearHeader:SetPoint("TOPLEFT", statsToysText, "BOTTOMLEFT", 0, -2)
+    gearHeader:SetJustifyH("LEFT")
+    gearHeader:SetWidth(280)
+    gearHeader:SetTextColor(1, 0.2, 0.2)
+    gearHeader:SetText("Kitten Gear:")
 
     local statsIcons = CreateFrame("Frame", nil, statsContent)
-    statsIcons:SetPoint("TOPLEFT", statsAppliedText, "BOTTOMLEFT", 0, -8)
+    statsIcons:SetPoint("TOPLEFT", gearHeader, "BOTTOMLEFT", 0, -2)
     statsIcons:SetWidth(280)
     statsIcons:SetHeight(1)
 
-    local statsRestText = statsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    statsRestText:SetPoint("TOPLEFT", statsIcons, "BOTTOMLEFT", 0, -8)
-    statsRestText:SetJustifyH("LEFT")
-    statsRestText:SetWidth(280)
-    statsRestText:SetText("")
+    local statsOtherText = statsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    statsOtherText:SetPoint("TOPLEFT", statsIcons, "BOTTOMLEFT", 0, -8)
+    statsOtherText:SetJustifyH("LEFT")
+    statsOtherText:SetWidth(280)
+    statsOtherText:SetText("")
+
+    local skillsHeader = statsContent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    skillsHeader:SetPoint("TOPLEFT", statsOtherText, "BOTTOMLEFT", 0, -8)
+    skillsHeader:SetJustifyH("LEFT")
+    skillsHeader:SetWidth(280)
+    skillsHeader:SetTextColor(1, 0.2, 0.2)
+    skillsHeader:SetText("Kitten Skills")
+
+    local statsSkillsText = statsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    statsSkillsText:SetPoint("TOPLEFT", skillsHeader, "BOTTOMLEFT", 0, -2)
+    statsSkillsText:SetJustifyH("LEFT")
+    statsSkillsText:SetWidth(280)
+    statsSkillsText:SetText("")
+
+    local heatHeader = statsContent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    heatHeader:SetPoint("TOPLEFT", statsSkillsText, "BOTTOMLEFT", 0, -8)
+    heatHeader:SetJustifyH("LEFT")
+    heatHeader:SetWidth(280)
+    heatHeader:SetTextColor(1, 0.2, 0.2)
+    heatHeader:SetText("Kitten Heat Status")
+
+    local statsHeatText = statsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    statsHeatText:SetPoint("TOPLEFT", heatHeader, "BOTTOMLEFT", 0, -2)
+    statsHeatText:SetJustifyH("LEFT")
+    statsHeatText:SetWidth(280)
+    statsHeatText:SetText("")
+
+    local statsLocationText = statsContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    statsLocationText:SetPoint("TOPLEFT", statsHeatText, "BOTTOMLEFT", 0, -8)
+    statsLocationText:SetJustifyH("LEFT")
+    statsLocationText:SetWidth(280)
+    statsLocationText:SetText("")
 
     local kittenHeatBar = CreateFrame("StatusBar", nil, statsContent, "BackdropTemplate")
     kittenHeatBar:SetSize(260, 14)
@@ -906,26 +1253,116 @@ local function ShowControlPanel(kitten)
     frame.UpdateStats = function(self)
         local noKitten = not self.kitten
         warningText:SetShown(noKitten)
-        local appliedLines, otherLines, iconFiles, heatValue = BuildStatsSections(self.kitten)
-        statsAppliedText:SetText(table.concat(appliedLines, "\n"))
-        statsRestText:SetText(table.concat(otherLines, "\n"))
-        local lineHeight = 14
-        local appliedHeight = #appliedLines * lineHeight
-        local otherHeight = #otherLines * lineHeight
-        statsAppliedText:SetHeight(appliedHeight)
-        statsRestText:SetHeight(otherHeight)
 
+        local sections = BuildStatsSections(self.kitten)
+        local controlsLines = sections.controls or {}
+        local toysLines = sections.toys or {}
+        local otherLines = sections.other or {}
+        local skillsLines = sections.skills or {}
+        local heatLines = sections.heat or {}
+        local locationLines = sections.location or {}
+        local iconFiles = sections.icons or {}
         local iconCount = iconFiles and #iconFiles or 0
+        local heatValue = sections.heatValue or 0
+
+        statsControlsText:SetText(table.concat(controlsLines, "\n"))
+        statsToysText:SetText(table.concat(toysLines, "\n"))
+        statsOtherText:SetText(table.concat(otherLines, "\n"))
+        statsSkillsText:SetText(table.concat(skillsLines, "\n"))
+        statsHeatText:SetText(table.concat(heatLines, "\n"))
+        statsLocationText:SetText(table.concat(locationLines, "\n"))
+
+        local lineHeight = 14
+        statsControlsText:SetHeight(#controlsLines * lineHeight)
+        statsToysText:SetHeight(#toysLines * lineHeight)
+        statsOtherText:SetHeight(#otherLines * lineHeight)
+        statsSkillsText:SetHeight(#skillsLines * lineHeight)
+        statsHeatText:SetHeight(#heatLines * lineHeight)
+        statsLocationText:SetHeight(#locationLines * lineHeight)
+
+        toysHeader:SetShown(#toysLines > 0)
+        statsToysText:SetShown(#toysLines > 0)
+        skillsHeader:SetShown(#skillsLines > 0)
+        statsSkillsText:SetShown(#skillsLines > 0)
+        heatHeader:SetShown(#heatLines > 0)
+        statsHeatText:SetShown(#heatLines > 0)
+        gearHeader:SetShown(iconCount > 0)
+        statsLocationText:SetShown(#locationLines > 0)
+
+        warningText:ClearAllPoints()
+        controlsStatusHeader:ClearAllPoints()
+        statsControlsText:ClearAllPoints()
+        toysHeader:ClearAllPoints()
+        statsToysText:ClearAllPoints()
+        gearHeader:ClearAllPoints()
+        statsIcons:ClearAllPoints()
+        statsOtherText:ClearAllPoints()
+        skillsHeader:ClearAllPoints()
+        statsSkillsText:ClearAllPoints()
+        heatHeader:ClearAllPoints()
+        statsHeatText:ClearAllPoints()
+        statsLocationText:ClearAllPoints()
+
+        local topAnchor = refreshBtn
+        if noKitten then
+            warningText:SetPoint("TOPLEFT", refreshBtn, "BOTTOMLEFT", 0, 0)
+            topAnchor = warningText
+        end
+
+        local currentAnchor = topAnchor
+
+        if #skillsLines > 0 then
+            skillsHeader:SetPoint("TOPLEFT", currentAnchor, "BOTTOMLEFT", 0, -2)
+            statsSkillsText:SetPoint("TOPLEFT", skillsHeader, "BOTTOMLEFT", 0, 0)
+            currentAnchor = statsSkillsText
+        end
+
+        if #heatLines > 0 then
+            heatHeader:SetPoint("TOPLEFT", currentAnchor, "BOTTOMLEFT", 0, -4)
+            statsHeatText:SetPoint("TOPLEFT", heatHeader, "BOTTOMLEFT", 0, 0)
+            currentAnchor = statsHeatText
+        end
+
+        kittenHeatBar:ClearAllPoints()
+        local showHeatBar = not noKitten
+        if showHeatBar then
+            kittenHeatBar:SetPoint("TOPLEFT", currentAnchor, "BOTTOMLEFT", 0, -4)
+            local displayValue = tonumber(heatValue) or 0
+            displayValue = math.max(0, math.min(100, displayValue))
+            kittenHeatBar:SetValue(displayValue)
+            local r, g, b = GetHeatBarColor(displayValue)
+            kittenHeatBar:SetStatusBarColor(r, g, b)
+            kittenHeatBar.text:SetText(string.format("Kitten Heat Bar: %d / 100", displayValue))
+            kittenHeatBar:Show()
+            currentAnchor = kittenHeatBar
+        else
+            kittenHeatBar:Hide()
+        end
+
+        if iconCount > 0 then
+            gearHeader:SetPoint("TOPLEFT", currentAnchor, "BOTTOMLEFT", 0, -4)
+            statsIcons:SetPoint("TOPLEFT", gearHeader, "BOTTOMLEFT", 0, -2)
+            currentAnchor = statsIcons
+        end
+
+        if #otherLines > 0 then
+            statsOtherText:SetPoint("TOPLEFT", currentAnchor, "BOTTOMLEFT", 0, -4)
+            currentAnchor = statsOtherText
+        end
+
+        controlsStatusHeader:SetPoint("TOPLEFT", currentAnchor, "BOTTOMLEFT", 0, -4)
+        statsControlsText:SetPoint("TOPLEFT", controlsStatusHeader, "BOTTOMLEFT", 0, 0)
+        currentAnchor = statsControlsText
+
+        if #toysLines > 0 then
+            toysHeader:SetPoint("TOPLEFT", currentAnchor, "BOTTOMLEFT", 0, 0)
+            statsToysText:SetPoint("TOPLEFT", toysHeader, "BOTTOMLEFT", 0, 0)
+            currentAnchor = statsToysText
+        end
+
         local statsIconSize = 40
         local statsIconPadding = 6
         local statsSectionSpacing = 8
-
-        statsIcons:ClearAllPoints()
-        if iconCount > 0 then
-            statsIcons:SetPoint("TOPLEFT", statsAppliedText, "BOTTOMLEFT", 0, -statsSectionSpacing)
-        else
-            statsIcons:SetPoint("TOPLEFT", statsAppliedText, "BOTTOMLEFT", 0, 0)
-        end
 
         local iconsPerRow = math.max(1, math.floor((statsIcons:GetWidth() + statsIconPadding) / (statsIconSize + statsIconPadding)))
         local iconRows = iconCount > 0 and (math.floor((iconCount - 1) / iconsPerRow) + 1) or 0
@@ -959,47 +1396,21 @@ local function ShowControlPanel(kitten)
             statsIcons:Hide()
         end
 
-        statsRestText:ClearAllPoints()
-        if iconCount > 0 then
-            statsRestText:SetPoint("TOPLEFT", statsIcons, "BOTTOMLEFT", 0, -statsSectionSpacing)
-        else
-            statsRestText:SetPoint("TOPLEFT", statsAppliedText, "BOTTOMLEFT", 0, 0)
+        if #locationLines > 0 then
+            statsLocationText:SetPoint("TOPLEFT", currentAnchor, "BOTTOMLEFT", 0, -2)
+            currentAnchor = statsLocationText
         end
 
-        kittenHeatBar:ClearAllPoints()
-        local showHeatBar = not noKitten
-        if showHeatBar then
-            kittenHeatBar:SetPoint("TOPLEFT", statsRestText, "BOTTOMLEFT", 0, -statsSectionSpacing)
-            local displayValue = tonumber(heatValue) or 0
-            displayValue = math.max(0, math.min(100, displayValue))
-            kittenHeatBar:SetValue(displayValue)
-            local r, g, b = GetHeatBarColor(displayValue)
-            kittenHeatBar:SetStatusBarColor(r, g, b)
-            kittenHeatBar.text:SetText(string.format("Kitten Heat Bar: %d / 100", displayValue))
-            kittenHeatBar:Show()
-        else
-            kittenHeatBar:Hide()
-        end
+        local lastElement = currentAnchor
 
-        local height = 70 + appliedHeight
-        if iconCount > 0 then
-            height = height + statsSectionSpacing + iconsHeight
-            if otherHeight > 0 then
-                height = height + statsSectionSpacing + otherHeight
-            end
+        local contentTop = statsContent:GetTop()
+        local contentBottom = lastElement and lastElement:GetBottom()
+        if contentTop and contentBottom then
+            local height = contentTop - contentBottom + 20
+            statsContent:SetHeight(math.max(120, height))
         else
-            if otherHeight > 0 then
-                height = height + otherHeight
-            end
+            statsContent:SetHeight(120)
         end
-        if showHeatBar then
-            height = height + statsSectionSpacing + kittenHeatBar:GetHeight()
-        end
-        height = height + 20
-        if noKitten then
-            height = height + 44
-        end
-        statsContent:SetHeight(math.max(120, height))
     end
 
     refreshBtn:SetScript("OnClick", function()
@@ -1258,6 +1669,123 @@ local function ShowControlPanel(kitten)
 
     LayoutControlBlocks()
     tabFrames["Control"] = controlTab
+
+    -- Toys tab
+    local toysTab = CreateTabFrame()
+    local toysScroll, toysContent = CreateScrollArea(toysTab)
+
+    local toyBlocks = {}
+    local LayoutToyBlocks
+
+    local function UpdateToysHeight(totalHeight)
+        toysContent:SetHeight(math.max(200, totalHeight))
+        if toysScroll.UpdateScrollChildRect then
+            toysScroll:UpdateScrollChildRect()
+        end
+    end
+
+    local function CreateToyCollapsibleBlock(title)
+        local block = {
+            kind = "collapsible",
+            title = title,
+            expanded = false,
+        }
+
+        block.header = CreateFrame("Button", nil, toysContent, "UIPanelButtonTemplate")
+        block.header:SetSize(270, 20)
+        local headerFont = block.header:GetFontString()
+        if headerFont then
+            headerFont:SetJustifyH("LEFT")
+        end
+
+        block.content = CreateFrame("Frame", nil, toysContent)
+        block.content:SetWidth(300)
+        block.content:Hide()
+
+        local function UpdateHeaderVisuals()
+            local marker = block.expanded and "[-]" or "[+]"
+            block.header:SetText(string.format("%s %s", marker, block.title))
+            block.header:SetHeight(20)
+            local fontString = block.header:GetFontString()
+            if fontString then
+                if block.expanded then
+                    fontString:SetTextColor(1, 0.82, 0)
+                else
+                    fontString:SetTextColor(1, 1, 1)
+                end
+            end
+        end
+
+        function block:SetExpanded(expanded)
+            self.expanded = expanded and true or false
+            self.content:SetShown(self.expanded)
+            UpdateHeaderVisuals()
+            if LayoutToyBlocks then
+                LayoutToyBlocks()
+            end
+        end
+
+        block.header:SetScript("OnClick", function()
+            block:SetExpanded(not block.expanded)
+        end)
+
+        UpdateHeaderVisuals()
+        table.insert(toyBlocks, block)
+        return block
+    end
+
+    local function BuildToyCollapsibleContent(block, builder)
+        local yBlock = -4
+        yBlock = builder(block.content, yBlock)
+        block.contentHeight = FinalizeBlockHeight(yBlock)
+        block.content:SetHeight(block.contentHeight)
+        block.content:Hide()
+    end
+
+    LayoutToyBlocks = function()
+        local yOffset = -4
+        local spacing = 6
+
+        for _, block in ipairs(toyBlocks) do
+            block.header:ClearAllPoints()
+            block.header:SetPoint("TOPLEFT", toysContent, "TOPLEFT", 0, yOffset)
+            yOffset = yOffset - block.header:GetHeight()
+
+            if block.expanded then
+                block.content:ClearAllPoints()
+                block.content:SetPoint("TOPLEFT", block.header, "BOTTOMLEFT", 0, -2)
+                block.content:SetHeight(block.contentHeight or 0)
+                block.content:Show()
+                yOffset = yOffset - (block.contentHeight or 0) - spacing
+            else
+                block.content:Hide()
+                yOffset = yOffset - spacing
+            end
+        end
+
+        UpdateToysHeight(-yOffset + 10)
+    end
+
+    for _, toy in ipairs(TOY_DEFS) do
+        local toyBlock = CreateToyCollapsibleBlock(toy.label)
+        BuildToyCollapsibleContent(toyBlock, function(parent, y)
+            y = AddToyButton(parent, y, "Apply " .. toy.label, toy, "apply", toy.icon)
+            y = AddToyButton(parent, y, "Remove " .. toy.label, toy, "remove")
+            if toy.vibe then
+                y = AddToyIntensityRow(parent, y, "Vibration intensity", toy, "vibe", 5)
+            end
+            if toy.shock then
+                y = AddToyIntensityRow(parent, y, "Shock intensity", toy, "shock", 3)
+            end
+            if toy.inflate then
+                y = AddToyInflateRow(parent, y, toy)
+            end
+            return y
+        end)
+    end
+
+    LayoutToyBlocks()
+    tabFrames["Toys"] = toysTab
 
     -- Discipline tab
     local disciplineTab = CreateTabFrame()

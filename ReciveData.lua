@@ -621,6 +621,9 @@ f:SetScript("OnEvent", function(_, event, prefix, msg, channel, sender)
     if msg and (msg:match("^MaidTasksHeader,") or msg:match("^MaidTasksItem,")) then
         return
     end
+    if msg and msg:match("^cctoy%s") then
+        return
+    end
 
     -- Prepare DB structure for that slave
     ensureSlaveDatabases(shortName)

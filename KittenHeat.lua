@@ -253,6 +253,26 @@ local function AddHeat(amount)
     UpdateHeatBar()
 end
 
+local function AddHeatDelta(amount)
+    local delta = tonumber(amount)
+    if not delta or delta == 0 then
+        return
+    end
+    if delta > 0 then
+        AddHeat(delta)
+        return
+    end
+    heatValue = ClampNumber(heatValue + delta, 0, 100)
+    if heatData then
+        heatData.heat = heatValue
+    end
+    UpdateHeatBar()
+end
+
+function CCT_AddHeatDelta(amount)
+    AddHeatDelta(amount)
+end
+
 local function MaybeSyncHeat()
     if not heatData then
         return

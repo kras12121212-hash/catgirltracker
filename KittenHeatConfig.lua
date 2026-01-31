@@ -31,6 +31,187 @@ cfg.orgasm.texture = cfg.orgasm.texture or "Interface\\AddOns\\CatgirlTracker\\T
 cfg.orgasm.flashDuration = cfg.orgasm.flashDuration or 0.6
 cfg.orgasm.alpha = cfg.orgasm.alpha or 0.9
 
+-- Toy heat configuration.
+-- base: heat added while the toy is applied.
+-- vibe/inflate: per-stage heat while vibration/inflation is active (stage 1-5).
+-- shock: one-time heat change applied on shock (can be negative).
+if cfg.toys == nil then
+    cfg.toys = {
+        dildo = {
+            label = "Dildo",
+            base = { intervalSeconds = 90, heat = 1 },
+            vibe = {
+                { intervalSeconds = 30, heat = 1 },
+                { intervalSeconds = 25, heat = 2 },
+                { intervalSeconds = 20, heat = 3 },
+                { intervalSeconds = 15, heat = 4 },
+                { intervalSeconds = 10, heat = 5 },
+            },
+            shock = { -5, -10, -15 },
+        },
+        inflatable_butplug = {
+            label = "Inflatable Butplug",
+            base = { intervalSeconds = 90, heat = 1 },
+            inflate = {
+                { intervalSeconds = 60, heat = 1 },
+                { intervalSeconds = 50, heat = 2 },
+                { intervalSeconds = 40, heat = 3 },
+                { intervalSeconds = 30, heat = 4 },
+                { intervalSeconds = 20, heat = 5 },
+            },
+        },
+        inflatable_dildo = {
+            label = "Inflatable Dildo",
+            base = { intervalSeconds = 90, heat = 1 },
+            inflate = {
+                { intervalSeconds = 60, heat = 1 },
+                { intervalSeconds = 50, heat = 2 },
+                { intervalSeconds = 40, heat = 3 },
+                { intervalSeconds = 30, heat = 4 },
+                { intervalSeconds = 20, heat = 5 },
+            },
+        },
+        small_butplug = {
+            label = "Small Butplug",
+            base = { intervalSeconds = 90, heat = 1 },
+        },
+        large_butplug = {
+            label = "Large Butplug",
+            base = { intervalSeconds = 90, heat = 1 },
+        },
+        taill_butplug = {
+            label = "Taill Butplug",
+            base = { intervalSeconds = 90, heat = 1 },
+        },
+        vibes_pussy = {
+            label = "Vibes Pussy",
+            base = { intervalSeconds = 90, heat = 1 },
+            vibe = {
+                { intervalSeconds = 30, heat = 1 },
+                { intervalSeconds = 25, heat = 2 },
+                { intervalSeconds = 20, heat = 3 },
+                { intervalSeconds = 15, heat = 4 },
+                { intervalSeconds = 10, heat = 5 },
+            },
+        },
+        vibes_nipples = {
+            label = "Vibes Nipples",
+            base = { intervalSeconds = 90, heat = 1 },
+            vibe = {
+                { intervalSeconds = 30, heat = 1 },
+                { intervalSeconds = 25, heat = 2 },
+                { intervalSeconds = 20, heat = 3 },
+                { intervalSeconds = 15, heat = 4 },
+                { intervalSeconds = 10, heat = 5 },
+            },
+        },
+        vibes_ears = {
+            label = "Vibes Ears",
+            base = { intervalSeconds = 90, heat = 1 },
+            vibe = {
+                { intervalSeconds = 30, heat = 1 },
+                { intervalSeconds = 25, heat = 2 },
+                { intervalSeconds = 20, heat = 3 },
+                { intervalSeconds = 15, heat = 4 },
+                { intervalSeconds = 10, heat = 5 },
+            },
+            shock = { -5, -10, -15 },
+        },
+        nipple_piercings = {
+            label = "Nipple Piercings",
+            base = { intervalSeconds = 90, heat = 1 },
+            vibe = {
+                { intervalSeconds = 30, heat = 1 },
+                { intervalSeconds = 25, heat = 2 },
+                { intervalSeconds = 20, heat = 3 },
+                { intervalSeconds = 15, heat = 4 },
+                { intervalSeconds = 10, heat = 5 },
+            },
+            shock = { -5, -10, -15 },
+        },
+        ear_piercings = {
+            label = "Ear Piercings",
+            base = { intervalSeconds = 90, heat = 1 },
+            vibe = {
+                { intervalSeconds = 30, heat = 1 },
+                { intervalSeconds = 25, heat = 2 },
+                { intervalSeconds = 20, heat = 3 },
+                { intervalSeconds = 15, heat = 4 },
+                { intervalSeconds = 10, heat = 5 },
+            },
+            shock = { -5, -10, -15 },
+        },
+        pussy_lipps_piercings = {
+            label = "Pussy Lipps Piercings",
+            base = { intervalSeconds = 90, heat = 1 },
+            vibe = {
+                { intervalSeconds = 30, heat = 1 },
+                { intervalSeconds = 25, heat = 2 },
+                { intervalSeconds = 20, heat = 3 },
+                { intervalSeconds = 15, heat = 4 },
+                { intervalSeconds = 10, heat = 5 },
+            },
+            shock = { -5, -10, -15 },
+        },
+    }
+end
+
+local function ToyEventName(id)
+    return "Toy_" .. id
+end
+
+local function ToyVibeEventName(id)
+    return "Toy_" .. id .. "_Vibe"
+end
+
+local function ToyInflateEventName(id)
+    return "Toy_" .. id .. "_Inflate"
+end
+
+local function AddToyControls(list)
+    if type(cfg.toys) ~= "table" then
+        return
+    end
+    for id, toy in pairs(cfg.toys) do
+        if type(toy) == "table" then
+            if toy.base then
+                table.insert(list, {
+                    key = "toy_" .. id .. "_base",
+                    label = toy.label or ("Toy " .. id),
+                    event = ToyEventName(id),
+                    activeWhenTrue = true,
+                    intervalSeconds = toy.base.intervalSeconds,
+                    heat = toy.base.heat,
+                })
+            end
+            if type(toy.vibe) == "table" then
+                for stage, def in ipairs(toy.vibe) do
+                    table.insert(list, {
+                        key = "toy_" .. id .. "_vibe_" .. stage,
+                        label = (toy.label or ("Toy " .. id)) .. " Vibe " .. stage,
+                        event = ToyVibeEventName(id),
+                        activeValues = { stage },
+                        intervalSeconds = def.intervalSeconds,
+                        heat = def.heat,
+                    })
+                end
+            end
+            if type(toy.inflate) == "table" then
+                for stage, def in ipairs(toy.inflate) do
+                    table.insert(list, {
+                        key = "toy_" .. id .. "_inflate_" .. stage,
+                        label = (toy.label or ("Toy " .. id)) .. " Inflate " .. stage,
+                        event = ToyInflateEventName(id),
+                        activeValues = { stage },
+                        intervalSeconds = def.intervalSeconds,
+                        heat = def.heat,
+                    })
+                end
+            end
+        end
+    end
+end
+
 -- Controls that add heat while active.
 -- intervalSeconds: how often heat is added while the control is active.
 -- heat: how much to add each interval.
@@ -50,4 +231,5 @@ if cfg.controls == nil then
         { key = "tailbell", label = "Tail Bell", event = "TailBellState", stateField = "state", activeWhenTrue = true, intervalSeconds = 180, heat = 1 },
         { key = "leash", label = "Leash", eventActive = "KittenLeash", eventInactive = "KittenUnleash", intervalSeconds = 60, heat = 2 },
     }
+    AddToyControls(cfg.controls)
 end

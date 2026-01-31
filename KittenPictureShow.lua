@@ -17,6 +17,25 @@ local logInitialized = false
 local lastLogSize = 0
 local updateTicker = nil
 
+local TOY_DEFS = {
+    { id = "dildo", icon = "Textures/Dildo.tga" },
+    { id = "inflatable_butplug", icon = "Textures/InflatableButplug.tga" },
+    { id = "inflatable_dildo", icon = "Textures/InflatableDildo.tga" },
+    { id = "small_butplug", icon = "Textures/SmallButplug.tga" },
+    { id = "large_butplug", icon = "Textures/LargeButplug.tga" },
+    { id = "taill_butplug", icon = "Textures/TaillButplug.tga" },
+    { id = "vibes_pussy", icon = "Textures/Vibes.tga" },
+    { id = "vibes_nipples", icon = "Textures/Vibes.tga" },
+    { id = "vibes_ears", icon = "Textures/Vibes.tga" },
+    { id = "nipple_piercings", icon = "Textures/Piercings.tga" },
+    { id = "ear_piercings", icon = "Textures/Piercings.tga" },
+    { id = "pussy_lipps_piercings", icon = "Textures/Piercings.tga" },
+}
+
+local function ToyEventName(id)
+    return "Toy_" .. id
+end
+
 CatgirlBehaviorDB = CatgirlBehaviorDB or {}
 CatgirlBehaviorDB.BehaviorLog = CatgirlBehaviorDB.BehaviorLog or {}
 CatgirlBehaviorDB.BehaviorLog[kittyname] = CatgirlBehaviorDB.BehaviorLog[kittyname] or {}
@@ -29,6 +48,9 @@ end
 local function BuildControlIconPath(fileName)
     if not fileName or fileName == "" then
         return nil
+    end
+    if fileName:find("[/\\]") then
+        return "Interface\\AddOns\\CatgirlTracker\\" .. fileName:gsub("/", "\\")
     end
     return CGCC_TEXTURE_PATH .. fileName
 end
@@ -171,6 +193,13 @@ local function GetAppliedBindIconFiles(log)
         addIcon("chastitybra.tga")
     end
 
+    for _, toy in ipairs(TOY_DEFS) do
+        local toyEntry = FindLastEvent(log, ToyEventName(toy.id))
+        if toyEntry and toyEntry.state == true then
+            addIcon(toy.icon)
+        end
+    end
+
     if GetLeashState(log) == "Leashed" then
         addIcon("leash-232-with-gb_ergebnis.tga")
     end
@@ -256,6 +285,13 @@ local function GetAppliedIconForEntry(entry)
     elseif entry.event == "ChastityBra" then
         if entry.state == true then
             return "chastitybra.tga"
+        end
+
+    elseif entry.event and entry.event:match("^Toy_") then
+        for _, toy in ipairs(TOY_DEFS) do
+            if entry.event == ToyEventName(toy.id) and entry.state == true then
+                return toy.icon
+            end
         end
 
     elseif entry.event == "KittenLeash" then
