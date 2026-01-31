@@ -7,7 +7,9 @@ Debug.lua
 ChatMessages.lua
 KittenHeatConfig.lua
 KittenHeat.lua
+kitenSubmissivnesTracker.lua
 toys.lua
+Discipline.lua
 gag.lua
 GuildTracker.lua
 ZoneTracker.lua

@@ -36,6 +36,16 @@ local function Round(value, places)
     return math.floor(value * pow + 0.5) / pow
 end
 
+local function GetInstanceID()
+    if not GetInstanceInfo then
+        return nil
+    end
+    local _, _, _, _, _, _, _, instanceID = GetInstanceInfo()
+    if instanceID and instanceID > 0 then
+        return instanceID
+    end
+end
+
 local function RequestGuildRoster()
     if C_GuildInfo and C_GuildInfo.GuildRoster then
         C_GuildInfo.GuildRoster()
@@ -110,23 +120,24 @@ local function RestoreTrackingState()
 end
 
 local function GetMapPosition()
+    local instanceID = GetInstanceID()
     if C_Map and C_Map.GetBestMapForUnit and C_Map.GetPlayerMapPosition then
         local mapID = C_Map.GetBestMapForUnit("player")
-        if not mapID then return nil end
+        if not mapID then return nil, nil, nil, instanceID end
         local pos = C_Map.GetPlayerMapPosition(mapID, "player")
-        if not pos then return nil end
+        if not pos then return nil, nil, nil, instanceID end
         local x, y = pos.x, pos.y
         if pos.GetXY then
             x, y = pos:GetXY()
         end
         if x and y then
-            return mapID, x, y
+            return mapID, x, y, instanceID
         end
     end
     if GetPlayerMapPosition then
         local x, y = GetPlayerMapPosition("player")
         if x and y then
-            return nil, x, y
+            return nil, x, y, instanceID
         end
     end
 end
@@ -140,7 +151,7 @@ end
 
 local function LogLocation()
     if not trackingActive then return end
-    local mapID, x, y = GetMapPosition()
+    local mapID, x, y, instanceID = GetMapPosition()
     if not x or not y then
         local now = time()
         if now - lastNoPositionLog > 60 then
@@ -155,6 +166,7 @@ local function LogLocation()
         mapID = mapID,
         x = Round(x, 4),
         y = Round(y, 4),
+        instanceID = instanceID,
         synced = 0
     }
     local log = GetLocationLog()

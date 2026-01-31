@@ -516,9 +516,14 @@ local function parseAndStoreSlaveData(msg, sender)
         end
 
     elseif logType == "LocationLog" then
-        local timestamp, unixtime, mapID, x, y = msg:match(
-            "timestamp:([^,]+), unixtime:(%d+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
+        local timestamp, unixtime, mapID, x, y, instanceID = msg:match(
+            "timestamp:([^,]+), unixtime:(%d+), mapID:([^,]+), x:([^,]+), y:([^,]+), instanceID:([^,]+)"
         )
+        if not timestamp then
+            timestamp, unixtime, mapID, x, y = msg:match(
+                "timestamp:([^,]+), unixtime:(%d+), mapID:([^,]+), x:([^,]+), y:([^,]+)"
+            )
+        end
         if timestamp and unixtime and x and y then
             table.insert(CatgirlLocationDB.LocationLog[slaveName], {
                 timestamp = timestamp,
@@ -526,6 +531,7 @@ local function parseAndStoreSlaveData(msg, sender)
                 mapID = mapID ~= "nil" and tonumber(mapID) or nil,
                 x = x ~= "nil" and tonumber(x) or nil,
                 y = y ~= "nil" and tonumber(y) or nil,
+                instanceID = instanceID ~= "nil" and tonumber(instanceID) or nil,
                 receivedAt = time(),
                 synced = 1
             })
@@ -608,6 +614,15 @@ f:SetScript("OnEvent", function(_, event, prefix, msg, channel, sender)
     end
     if msg and msg:match("^HeelsLoop") then
         HandleHeelsLoop(msg, shortName)
+        return
+    end
+    if msg and msg:match("^ccdiscwarn") then
+        local warning = CCT_Msg and CCT_Msg("DISCIPLINE_TOO_FAR") or "You are near your Kitten Nya!"
+        if CCT_RaidNotice then
+            CCT_RaidNotice(warning)
+        elseif RaidNotice_AddMessage and RaidWarningFrame and ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] then
+            RaidNotice_AddMessage(RaidWarningFrame, warning, ChatTypeInfo["RAID_WARNING"])
+        end
         return
     end
 

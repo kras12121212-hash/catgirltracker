@@ -303,6 +303,102 @@ local TOY_DEFS = {
     },
 }
 
+local DISCIPLINE_DEFS = {
+    {
+        id = "spank_hand",
+        label = "Spank Hand",
+        icon = "Textures/Hand.tga",
+        maxStrength = 5,
+        parts = {
+            { id = "butt", label = "Butt" },
+            { id = "thighs", label = "Thighs" },
+        },
+    },
+    {
+        id = "pinch",
+        label = "Pinch",
+        icon = "Textures/Hand.tga",
+        maxStrength = 3,
+        parts = {
+            { id = "ears", label = "Ears" },
+            { id = "nipples", label = "Nipples", restrict = "bra" },
+        },
+    },
+    {
+        id = "vibrating_wand",
+        label = "Vibrating Wand",
+        icon = "Textures/VibratingWand.tga",
+        maxStrength = 3,
+        parts = {
+            { id = "tits", label = "Tits", restrict = "bra" },
+            { id = "pussy", label = "Pussy", restrict = "belt" },
+            { id = "ears", label = "Ears" },
+        },
+    },
+    {
+        id = "shock_wand",
+        label = "Shock Wand",
+        icon = "Textures/ShockWand.tga",
+        maxStrength = 5,
+        parts = {
+            { id = "thighs", label = "Thighs" },
+            { id = "paws", label = "Paws" },
+            { id = "pussy", label = "Pussy", restrict = "belt" },
+            { id = "belly", label = "Belly" },
+            { id = "tits", label = "Tits", restrict = "bra" },
+            { id = "nipples", label = "Nipples", restrict = "bra" },
+            { id = "neck", label = "Neck" },
+            { id = "ass", label = "Ass", restrict = "belt" },
+        },
+    },
+    {
+        id = "crop",
+        label = "Crop",
+        icon = "Textures/Crop.tga",
+        maxStrength = 3,
+        parts = {
+            { id = "butt", label = "Butt" },
+            { id = "thighs", label = "Thighs" },
+        },
+    },
+    {
+        id = "paddle",
+        label = "Paddle",
+        icon = "Textures/Paddle.tga",
+        maxStrength = 3,
+        parts = {
+            { id = "butt", label = "Butt" },
+            { id = "thighs", label = "Thighs" },
+            { id = "tits", label = "Tits", restrict = "bra" },
+            { id = "paws", label = "Paws" },
+        },
+    },
+    {
+        id = "heart_crop",
+        label = "Heart Crop",
+        icon = "Textures/HeartCrop.tga",
+        maxStrength = 3,
+        parts = {
+            { id = "butt", label = "Butt" },
+            { id = "thighs", label = "Thighs" },
+            { id = "tits", label = "Tits", restrict = "bra" },
+            { id = "paws", label = "Paws" },
+        },
+    },
+    {
+        id = "whip",
+        label = "Whip",
+        icon = "Textures/Whip.tga",
+        maxStrength = 3,
+        parts = {
+            { id = "butt", label = "Butt" },
+            { id = "thighs", label = "Thighs" },
+            { id = "tits", label = "Tits", restrict = "bra" },
+            { id = "paws", label = "Paws" },
+        },
+    },
+}
+
 local function ToyEventName(id)
     return "Toy_" .. id
 end
@@ -325,27 +421,45 @@ local function FormatCoords(entry)
     return string.format("%s (%s)", stamp or "Unknown time", mapPart)
 end
 
-local function GetPlayerMapCoords()
-    if C_Map and C_Map.GetBestMapForUnit and C_Map.GetPlayerMapPosition then
-        local mapID = C_Map.GetBestMapForUnit("player")
-        if not mapID then return nil end
-        local pos = C_Map.GetPlayerMapPosition(mapID, "player")
-        if not pos then return nil end
-        local x, y = pos.x, pos.y
-        if pos.GetXY then
-            x, y = pos:GetXY()
+    local function GetPlayerMapCoords()
+        if C_Map and C_Map.GetBestMapForUnit and C_Map.GetPlayerMapPosition then
+            local mapID = C_Map.GetBestMapForUnit("player")
+            if not mapID then return nil end
+            local pos = C_Map.GetPlayerMapPosition(mapID, "player")
+            if not pos then return nil end
+            local x, y = pos.x, pos.y
+            if pos.GetXY then
+                x, y = pos:GetXY()
+            end
+            if x and y then
+                return mapID, x, y
+            end
         end
-        if x and y then
-            return mapID, x, y
+        if GetPlayerMapPosition then
+            local x, y = GetPlayerMapPosition("player")
+            if x and y then
+                return nil, x, y
+            end
         end
     end
-    if GetPlayerMapPosition then
-        local x, y = GetPlayerMapPosition("player")
-        if x and y then
-            return nil, x, y
+
+    local function GetInstanceID()
+        if not GetInstanceInfo then
+            return nil
+        end
+        local _, _, _, _, _, _, _, instanceID = GetInstanceInfo()
+        if instanceID and instanceID > 0 then
+            return instanceID
         end
     end
-end
+
+    local function IsSameInstance(instanceID)
+        local myInstanceID = GetInstanceID()
+        if not instanceID or not myInstanceID then
+            return false
+        end
+        return instanceID == myInstanceID
+    end
 
 local function FormatDistanceToKitten(entry)
     if not entry or not entry.x or not entry.y then
@@ -417,6 +531,17 @@ end
 
 local function GetKittenHeatValue(log)
     local entry = FindLastEvent(log, "KittenHeat")
+    if entry and entry.state ~= nil then
+        local value = tonumber(entry.state)
+        if value then
+            return math.max(0, math.min(100, value))
+        end
+    end
+    return 0
+end
+
+local function GetKittenSubmissivenessValue(log)
+    local entry = FindLastEvent(log, "KittenSubmissiveness")
     if entry and entry.state ~= nil then
         local value = tonumber(entry.state)
         if value then
@@ -624,6 +749,7 @@ local function BuildStatsSections(kittenName)
         location = {},
         icons = {},
         heatValue = 0,
+        submissivenessValue = 0,
     }
     if not kittenName or kittenName == "" then
         sections.controls = { "No data synced for this kitten yet." }
@@ -744,6 +870,7 @@ local function BuildStatsSections(kittenName)
     end
 
     local heatValue = GetKittenHeatValue(log)
+    local submissivenessValue = GetKittenSubmissivenessValue(log)
     local orgasmTotal, orgasmToday, orgasmWeek, lastOrgasm = GetOrgasmStats(log)
     local deniedTotal, deniedSession = GetDeniedOrgasmStats(log)
 
@@ -765,6 +892,7 @@ local function BuildStatsSections(kittenName)
     sections.location = locationLines
     sections.icons = GetAppliedBindIconFiles(log)
     sections.heatValue = heatValue
+    sections.submissivenessValue = submissivenessValue
     return sections
 end
 
@@ -931,6 +1059,30 @@ local function ShowControlPanel(kitten)
         return string.format("cctoy %s %s", toyId, action)
     end
 
+    local function FormatCoord(value)
+        if value == nil then
+            return "nil"
+        end
+        return string.format("%.4f", value)
+    end
+
+    local function BuildDisciplineCommand(actionId, partId, strength)
+        local mapID, x, y = GetPlayerMapCoords()
+        local instanceID = GetInstanceID()
+        return string.format(
+            "ccdisc %s %s %s %s %s %s %s",
+            actionId,
+            partId,
+            tostring(strength),
+            tostring(mapID or "nil"),
+            FormatCoord(x),
+            FormatCoord(y),
+            tostring(instanceID or "nil")
+        )
+    end
+
+    local DISCIPLINE_CLOSE_RANGE = 0.02
+
     local function IsChastityBeltActive()
         if not frame.kitten or frame.kitten == "" then
             return false
@@ -959,6 +1111,59 @@ local function ShowControlPanel(kitten)
         end
         local braEntry = FindLastEvent(log, "ChastityBra")
         return braEntry and braEntry.state == true
+    end
+
+    local function GetLatestLocationEntry(kittenName)
+        if not kittenName or kittenName == "" then
+            return nil
+        end
+        local kittenKey = ShortName(kittenName)
+        local log = CatgirlLocationDB
+            and CatgirlLocationDB.LocationLog
+            and CatgirlLocationDB.LocationLog[kittenKey]
+        if not log or type(log) ~= "table" then
+            return nil
+        end
+        for i = #log, 1, -1 do
+            local entry = log[i]
+            if entry and entry.x and entry.y then
+                return entry
+            end
+        end
+        return nil
+    end
+
+    local function IsOwnerNearKitten(kittenName)
+        local entry = GetLatestLocationEntry(kittenName)
+        if not entry then
+            return false, nil
+        end
+        local ownerMapID, ownerX, ownerY = GetPlayerMapCoords()
+        if ownerX and ownerY and entry.x and entry.y then
+            if entry.mapID and ownerMapID and entry.mapID ~= ownerMapID then
+                if IsSameInstance(entry.instanceID) then
+                    return true, nil
+                end
+                return false, nil
+            end
+            local dx = ownerX - entry.x
+            local dy = ownerY - entry.y
+            local dist = math.sqrt(dx * dx + dy * dy)
+            return dist <= DISCIPLINE_CLOSE_RANGE, dist
+        end
+        if IsSameInstance(entry.instanceID) then
+            return true, nil
+        end
+        return false, nil
+    end
+
+    local function WarnDisciplineTooFar()
+        local message = CCT_Msg and CCT_Msg("DISCIPLINE_TOO_FAR") or "You are near your Kitten Nya!"
+        if CCT_RaidNotice then
+            CCT_RaidNotice(message)
+        else
+            print("|cffff5555[CatGirlControlCenter]|r " .. message)
+        end
     end
 
     local function AddToyButton(parent, y, label, toy, action, iconFile)
@@ -1229,6 +1434,25 @@ local function ShowControlPanel(kitten)
     statsLocationText:SetWidth(280)
     statsLocationText:SetText("")
 
+    local kittenSubmissivenessBar = CreateFrame("StatusBar", nil, statsContent, "BackdropTemplate")
+    kittenSubmissivenessBar:SetSize(260, 14)
+    kittenSubmissivenessBar:SetStatusBarTexture("Interface\\TARGETINGFRAME\\UI-StatusBar")
+    kittenSubmissivenessBar:SetMinMaxValues(0, 100)
+    kittenSubmissivenessBar:SetValue(0)
+    kittenSubmissivenessBar:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileSize = 16,
+        edgeSize = 8,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 }
+    })
+    kittenSubmissivenessBar:SetBackdropColor(0, 0, 0, 0.6)
+    kittenSubmissivenessBar.text = kittenSubmissivenessBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    kittenSubmissivenessBar.text:SetPoint("CENTER")
+    kittenSubmissivenessBar.text:SetText("Kitten Submissiveness: 0 / 100")
+    kittenSubmissivenessBar:Hide()
+
     local kittenHeatBar = CreateFrame("StatusBar", nil, statsContent, "BackdropTemplate")
     kittenHeatBar:SetSize(260, 14)
     kittenHeatBar:SetStatusBarTexture("Interface\\TARGETINGFRAME\\UI-StatusBar")
@@ -1264,6 +1488,7 @@ local function ShowControlPanel(kitten)
         local iconFiles = sections.icons or {}
         local iconCount = iconFiles and #iconFiles or 0
         local heatValue = sections.heatValue or 0
+        local submissivenessValue = sections.submissivenessValue or 0
 
         statsControlsText:SetText(table.concat(controlsLines, "\n"))
         statsToysText:SetText(table.concat(toysLines, "\n"))
@@ -1321,6 +1546,21 @@ local function ShowControlPanel(kitten)
             heatHeader:SetPoint("TOPLEFT", currentAnchor, "BOTTOMLEFT", 0, -4)
             statsHeatText:SetPoint("TOPLEFT", heatHeader, "BOTTOMLEFT", 0, 0)
             currentAnchor = statsHeatText
+        end
+
+        kittenSubmissivenessBar:ClearAllPoints()
+        local showSubBar = not noKitten
+        if showSubBar then
+            kittenSubmissivenessBar:SetPoint("TOPLEFT", currentAnchor, "BOTTOMLEFT", 0, -4)
+            local displayValue = tonumber(submissivenessValue) or 0
+            displayValue = math.max(0, math.min(100, displayValue))
+            kittenSubmissivenessBar:SetValue(displayValue)
+            kittenSubmissivenessBar:SetStatusBarColor(0.35, 0.8, 0.6)
+            kittenSubmissivenessBar.text:SetText(string.format("Kitten Submissiveness: %d / 100", displayValue))
+            kittenSubmissivenessBar:Show()
+            currentAnchor = kittenSubmissivenessBar
+        else
+            kittenSubmissivenessBar:Hide()
         end
 
         kittenHeatBar:ClearAllPoints()
@@ -1790,19 +2030,142 @@ local function ShowControlPanel(kitten)
     -- Discipline tab
     local disciplineTab = CreateTabFrame()
     local disciplineScroll, disciplineContent = CreateScrollArea(disciplineTab)
-    local disciplineY = -4
 
-    disciplineY = AddHeader(disciplineContent, disciplineY, "Discipline")
-    local spankBtn = CreateFrame("Button", nil, disciplineContent, "UIPanelButtonTemplate")
-    spankBtn:SetSize(240, 20)
-    spankBtn:SetPoint("TOPLEFT", 0, disciplineY)
-    spankBtn:SetText("Spank")
-    spankBtn:SetScript("OnClick", function()
-        -- Placeholder button: intentionally does nothing for now.
-    end)
-    disciplineY = disciplineY - 24
+    local disciplineBlocks = {}
+    local LayoutDisciplineBlocks
 
-    disciplineContent:SetHeight(math.max(120, -disciplineY + 10))
+    local function UpdateDisciplineHeight(totalHeight)
+        disciplineContent:SetHeight(math.max(200, totalHeight))
+        if disciplineScroll.UpdateScrollChildRect then
+            disciplineScroll:UpdateScrollChildRect()
+        end
+    end
+
+    local function CreateDisciplineCollapsibleBlock(action)
+        local block = {
+            kind = "collapsible",
+            title = action.label,
+            icon = action.icon,
+            expanded = false,
+        }
+
+        block.header = CreateFrame("Button", nil, disciplineContent, "UIPanelButtonTemplate")
+        block.header:SetSize(270, 20)
+        local headerFont = block.header:GetFontString()
+        if headerFont then
+            headerFont:SetJustifyH("LEFT")
+        end
+
+        block.content = CreateFrame("Frame", nil, disciplineContent)
+        block.content:SetWidth(300)
+        block.content:Hide()
+
+        local iconPath = block.icon and BuildControlIconPath(block.icon) or nil
+        if iconPath then
+            block.header:SetScript("OnEnter", function(self)
+                ShowControlIconPreview(self, iconPath)
+            end)
+            block.header:SetScript("OnLeave", function()
+                HideControlIconPreview()
+            end)
+        end
+
+        local function UpdateHeaderVisuals()
+            local marker = block.expanded and "[-]" or "[+]"
+            block.header:SetText(string.format("%s %s", marker, block.title))
+            block.header:SetHeight(20)
+            local fontString = block.header:GetFontString()
+            if fontString then
+                if block.expanded then
+                    fontString:SetTextColor(1, 0.82, 0)
+                else
+                    fontString:SetTextColor(1, 1, 1)
+                end
+            end
+        end
+
+        function block:SetExpanded(expanded)
+            self.expanded = expanded and true or false
+            self.content:SetShown(self.expanded)
+            UpdateHeaderVisuals()
+            if LayoutDisciplineBlocks then
+                LayoutDisciplineBlocks()
+            end
+        end
+
+        block.header:SetScript("OnClick", function()
+            block:SetExpanded(not block.expanded)
+        end)
+
+        UpdateHeaderVisuals()
+        table.insert(disciplineBlocks, block)
+        return block
+    end
+
+    local function BuildDisciplineCollapsibleContent(block, builder)
+        local yBlock = -4
+        yBlock = builder(block.content, yBlock)
+        block.contentHeight = FinalizeBlockHeight(yBlock)
+        block.content:SetHeight(block.contentHeight)
+        block.content:Hide()
+    end
+
+    LayoutDisciplineBlocks = function()
+        local yOffset = -4
+        local spacing = 6
+
+        for _, block in ipairs(disciplineBlocks) do
+            block.header:ClearAllPoints()
+            block.header:SetPoint("TOPLEFT", disciplineContent, "TOPLEFT", 0, yOffset)
+            yOffset = yOffset - block.header:GetHeight()
+
+            if block.expanded then
+                block.content:ClearAllPoints()
+                block.content:SetPoint("TOPLEFT", block.header, "BOTTOMLEFT", 0, -2)
+                block.content:SetHeight(block.contentHeight or 0)
+                block.content:Show()
+                yOffset = yOffset - (block.contentHeight or 0) - spacing
+            else
+                block.content:Hide()
+                yOffset = yOffset - spacing
+            end
+        end
+
+        UpdateDisciplineHeight(-yOffset + 10)
+    end
+
+    local function AddDisciplinePartRow(parent, y, action, part)
+        local text = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        text:SetPoint("TOPLEFT", 10, y)
+        text:SetText(part.label)
+
+        local btnWidth = 22
+        local btnHeight = 20
+        local startX = 140
+        local spacing = 4
+        for i = 1, action.maxStrength or 1 do
+            local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+            btn:SetSize(btnWidth, btnHeight)
+            btn:SetPoint("TOPLEFT", startX + (i - 1) * (btnWidth + spacing), y)
+            btn:SetText(tostring(i))
+            btn:SetScript("OnClick", function()
+                SendAddonToKitten(frame.kitten, BuildDisciplineCommand(action.id, part.id, i))
+            end)
+        end
+        return y - 22
+    end
+
+    for _, action in ipairs(DISCIPLINE_DEFS) do
+        local disciplineBlock = CreateDisciplineCollapsibleBlock(action)
+        BuildDisciplineCollapsibleContent(disciplineBlock, function(parent, y)
+            for _, part in ipairs(action.parts or {}) do
+                y = AddDisciplinePartRow(parent, y, action, part)
+            end
+            return y
+        end)
+    end
+
+    LayoutDisciplineBlocks()
     tabFrames["Discipline"] = disciplineTab
 
     -- Settings tab

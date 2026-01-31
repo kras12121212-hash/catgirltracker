@@ -156,6 +156,21 @@ if cfg.toys == nil then
     }
 end
 
+-- Discipline heat configuration.
+-- heat: one-time heat change when a discipline action is used (strength 1-N).
+if cfg.discipline == nil then
+    cfg.discipline = {
+        spank_hand = { label = "Spank Hand", heat = { 1, 2, 3, 4, 5 } },
+        pinch = { label = "Pinch", heat = { 1, 2, 3 } },
+        vibrating_wand = { label = "Vibrating Wand", heat = { 1, 2, 3 } },
+        shock_wand = { label = "Shock Wand", heat = { 1, 2, 3, 4, 5 } },
+        crop = { label = "Crop", heat = { 1, 2, 3 } },
+        paddle = { label = "Paddle", heat = { 1, 2, 3 } },
+        heart_crop = { label = "Heart Crop", heat = { 1, 2, 3 } },
+        whip = { label = "Whip", heat = { 1, 2, 3 } },
+    }
+end
+
 local function ToyEventName(id)
     return "Toy_" .. id
 end

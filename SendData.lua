@@ -416,12 +416,13 @@ C_Timer.NewTicker(3, function()
         for _, entry in ipairs(logTableLocation) do
             if HasPendingRecipients(entry, recipients) then
                 local msg = string.format(
-                    "LocationLog, timestamp:%s, unixtime:%s, mapID:%s, x:%s, y:%s",
+                    "LocationLog, timestamp:%s, unixtime:%s, mapID:%s, x:%s, y:%s, instanceID:%s",
                     SafeField(entry.timestamp),
                     SafeField(entry.unixtime),
                     SafeField(entry.mapID),
                     SafeField(entry.x),
-                    SafeField(entry.y)
+                    SafeField(entry.y),
+                    SafeField(entry.instanceID)
                 )
                 if CCT_AutoPrint then
                     CCT_AutoPrint(msg)

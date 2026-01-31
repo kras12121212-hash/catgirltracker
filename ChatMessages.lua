@@ -79,6 +79,67 @@ CCT_Messages = {
     TOY_BLOCKED_BRA = "%s cannot be changed while a chastity bra is locked.",
     TOY_NOT_APPLIED = "%s is not currently applied.",
 
+    -- Discipline
+    DISCIPLINE_ACTION = "%s on %s (strength %d).",
+    DISCIPLINE_BLOCKED_BELT = "%s cannot be used on %s while a chastity belt is locked.",
+    DISCIPLINE_BLOCKED_BRA = "%s cannot be used on %s while a chastity bra is locked.",
+    DISCIPLINE_TOO_FAR = "You are near your Kitten Nya!",
+
+    -- Discipline (per-action blocked messages)
+    DISCIPLINE_SPANK_HAND_BLOCKED_BELT = "%s cannot be used on %s while a chastity belt is locked.",
+    DISCIPLINE_SPANK_HAND_BLOCKED_BRA = "%s cannot be used on %s while a chastity bra is locked.",
+    DISCIPLINE_PINCH_BLOCKED_BELT = "%s cannot be used on %s while a chastity belt is locked.",
+    DISCIPLINE_PINCH_BLOCKED_BRA = "%s cannot be used on %s while a chastity bra is locked.",
+    DISCIPLINE_VIBRATING_WAND_BLOCKED_BELT = "%s cannot be used on %s while a chastity belt is locked.",
+    DISCIPLINE_VIBRATING_WAND_BLOCKED_BRA = "%s cannot be used on %s while a chastity bra is locked.",
+    DISCIPLINE_SHOCK_WAND_BLOCKED_BELT = "%s cannot be used on %s while a chastity belt is locked.",
+    DISCIPLINE_SHOCK_WAND_BLOCKED_BRA = "%s cannot be used on %s while a chastity bra is locked.",
+    DISCIPLINE_CROP_BLOCKED_BELT = "%s cannot be used on %s while a chastity belt is locked.",
+    DISCIPLINE_CROP_BLOCKED_BRA = "%s cannot be used on %s while a chastity bra is locked.",
+    DISCIPLINE_PADDLE_BLOCKED_BELT = "%s cannot be used on %s while a chastity belt is locked.",
+    DISCIPLINE_PADDLE_BLOCKED_BRA = "%s cannot be used on %s while a chastity bra is locked.",
+    DISCIPLINE_HEART_CROP_BLOCKED_BELT = "%s cannot be used on %s while a chastity belt is locked.",
+    DISCIPLINE_HEART_CROP_BLOCKED_BRA = "%s cannot be used on %s while a chastity bra is locked.",
+    DISCIPLINE_WHIP_BLOCKED_BELT = "%s cannot be used on %s while a chastity belt is locked.",
+    DISCIPLINE_WHIP_BLOCKED_BRA = "%s cannot be used on %s while a chastity bra is locked.",
+
+    -- Discipline (per-strength messages)
+    DISCIPLINE_SPANK_HAND_1 = "%s on %s (strength %d).",
+    DISCIPLINE_SPANK_HAND_2 = "%s on %s (strength %d).",
+    DISCIPLINE_SPANK_HAND_3 = "%s on %s (strength %d).",
+    DISCIPLINE_SPANK_HAND_4 = "%s on %s (strength %d).",
+    DISCIPLINE_SPANK_HAND_5 = "%s on %s (strength %d).",
+
+    DISCIPLINE_PINCH_1 = "%s on %s (strength %d).",
+    DISCIPLINE_PINCH_2 = "%s on %s (strength %d).",
+    DISCIPLINE_PINCH_3 = "%s on %s (strength %d).",
+
+    DISCIPLINE_VIBRATING_WAND_1 = "%s on %s (strength %d).",
+    DISCIPLINE_VIBRATING_WAND_2 = "%s on %s (strength %d).",
+    DISCIPLINE_VIBRATING_WAND_3 = "%s on %s (strength %d).",
+
+    DISCIPLINE_SHOCK_WAND_1 = "%s on %s (strength %d).",
+    DISCIPLINE_SHOCK_WAND_2 = "%s on %s (strength %d).",
+    DISCIPLINE_SHOCK_WAND_3 = "%s on %s (strength %d).",
+    DISCIPLINE_SHOCK_WAND_4 = "%s on %s (strength %d).",
+    DISCIPLINE_SHOCK_WAND_5 = "%s on %s (strength %d).",
+
+    DISCIPLINE_CROP_1 = "%s on %s (strength %d).",
+    DISCIPLINE_CROP_2 = "%s on %s (strength %d).",
+    DISCIPLINE_CROP_3 = "%s on %s (strength %d).",
+
+    DISCIPLINE_PADDLE_1 = "%s on %s (strength %d).",
+    DISCIPLINE_PADDLE_2 = "%s on %s (strength %d).",
+    DISCIPLINE_PADDLE_3 = "%s on %s (strength %d).",
+
+    DISCIPLINE_HEART_CROP_1 = "%s on %s (strength %d).",
+    DISCIPLINE_HEART_CROP_2 = "%s on %s (strength %d).",
+    DISCIPLINE_HEART_CROP_3 = "%s on %s (strength %d).",
+
+    DISCIPLINE_WHIP_1 = "%s on %s (strength %d).",
+    DISCIPLINE_WHIP_2 = "%s on %s (strength %d).",
+    DISCIPLINE_WHIP_3 = "%s on %s (strength %d).",
+
     -- Toys (per-toy messages)
     TOY_DILDO_APPLY = "Dildo applied to your kitten.",
     TOY_DILDO_REMOVE = "Dildo removed from your kitten.",

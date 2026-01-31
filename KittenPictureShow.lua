@@ -6,12 +6,15 @@ local POPUP_IMAGE_SIZE = 232
 local BINDS_ICON_SIZE = 40
 local BINDS_ICON_PADDING = 6
 local BINDS_WINDOW_PADDING = 8
+local DISCIPLINE_ICON_SIZE = 64
 
 local bindsFrame = nil
 local bindsIconContainer = nil
 local bindsIconTextures = {}
 local popupFrame = nil
 local popupToken = 0
+local disciplineFrame = nil
+local disciplineToken = 0
 local isKitten = false
 local logInitialized = false
 local lastLogSize = 0
@@ -339,6 +342,62 @@ local function ShowPopup(iconFile)
     C_Timer.After(5, function()
         if popupToken == token and popupFrame then
             popupFrame:Hide()
+        end
+    end)
+end
+
+local function EnsureDisciplineFrame()
+    if disciplineFrame then
+        return disciplineFrame
+    end
+
+    disciplineFrame = CreateFrame("Frame", "CatgirlDisciplinePopup", UIParent, "BackdropTemplate")
+    disciplineFrame:SetSize(DISCIPLINE_ICON_SIZE + 8, DISCIPLINE_ICON_SIZE + 8)
+    disciplineFrame:SetFrameStrata("TOOLTIP")
+    disciplineFrame:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileSize = 16,
+        edgeSize = 10,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 },
+    })
+    disciplineFrame:SetBackdropColor(0, 0, 0, 0.75)
+
+    disciplineFrame.texture = disciplineFrame:CreateTexture(nil, "ARTWORK")
+    disciplineFrame.texture:SetSize(DISCIPLINE_ICON_SIZE, DISCIPLINE_ICON_SIZE)
+    disciplineFrame.texture:SetPoint("CENTER")
+    disciplineFrame:Hide()
+
+    return disciplineFrame
+end
+
+local function PositionDisciplineFrame(frame)
+    if not frame then
+        return
+    end
+    frame:ClearAllPoints()
+    if bindsFrame then
+        frame:SetPoint("LEFT", bindsFrame, "RIGHT", 12, 0)
+    else
+        frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 120, -200)
+    end
+end
+
+function CCT_ShowDisciplineIcon(iconFile)
+    if not iconFile then
+        return
+    end
+    local frame = EnsureDisciplineFrame()
+    frame.texture:SetTexture(BuildControlIconPath(iconFile))
+    PositionDisciplineFrame(frame)
+    frame:Show()
+
+    disciplineToken = disciplineToken + 1
+    local token = disciplineToken
+    C_Timer.After(5, function()
+        if disciplineToken == token and disciplineFrame then
+            disciplineFrame:Hide()
         end
     end)
 end
