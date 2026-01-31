@@ -159,6 +159,33 @@ local function FormatBooleanState(value)
     return value and "On" or "Off"
 end
 
+local function FormatChastityBeltState(beltEntry, modeEntry)
+    if not beltEntry then
+        return "Unknown"
+    end
+    if type(beltEntry.state) == "boolean" then
+        return beltEntry.state and "On" or "Off"
+    end
+    return tostring(beltEntry.state)
+end
+
+local function FormatChastityBraState(entry)
+    if not entry then
+        return "Unknown"
+    end
+    return FormatBooleanState(entry.state)
+end
+
+local function FormatChastityBeltMode(beltEntry, modeEntry)
+    if not beltEntry or beltEntry.state ~= true then
+        return "Orgasm Allowed"
+    end
+    if modeEntry and modeEntry.state == "deny" then
+        return "Orgasm Denied"
+    end
+    return "Orgasm Allowed"
+end
+
 local function FormatCoords(entry)
     if not entry then return "Unknown" end
     local stamp = entry.receivedAt and date("%Y-%m-%d %H:%M:%S", entry.receivedAt) or entry.timestamp
@@ -297,6 +324,35 @@ local function GetOrgasmStats(log)
     return total, today, week, lastEntry
 end
 
+local function GetDeniedOrgasmStats(log)
+    local total = 0
+    local session = 0
+    if not log or type(log) ~= "table" then
+        return total, session
+    end
+
+    local sessionIndex = nil
+    for i = #log, 1, -1 do
+        local entry = log[i]
+        if entry and entry.event == "ChastitySessionStart" then
+            sessionIndex = i
+            break
+        end
+    end
+
+    for i = 1, #log do
+        local entry = log[i]
+        if entry and entry.event == "ChastityDenyOrgasm" then
+            total = total + 1
+            if not sessionIndex or i >= sessionIndex then
+                session = session + 1
+            end
+        end
+    end
+
+    return total, session
+end
+
 local function FormatOrgasmTimestamp(entry)
     if not entry then
         return "Never"
@@ -405,6 +461,16 @@ local function GetAppliedBindIconFiles(log)
         addIcon("jewel-232-with-bg_ergebnis.tga")
     end
 
+    local beltEntry = FindLastEvent(log, "ChastityBelt")
+    if beltEntry and beltEntry.state == true then
+        addIcon("Chastitybelt.tga")
+    end
+
+    local braEntry = FindLastEvent(log, "ChastityBra")
+    if braEntry and braEntry.state == true then
+        addIcon("chastitybra.tga")
+    end
+
     if GetLeashState(log) == "Leashed" then
         addIcon("leash-232-with-gb_ergebnis.tga")
     end
@@ -452,6 +518,14 @@ local function BuildStatsSections(kittenName)
     local trackingEntry = FindLastEvent(log, "TrackingJewel")
     table.insert(appliedLines, "Tracking Jewel: " .. FormatBooleanState(trackingEntry and trackingEntry.state))
 
+    local beltEntry = FindLastEvent(log, "ChastityBelt")
+    local beltModeEntry = FindLastEvent(log, "ChastityBeltMode")
+    table.insert(appliedLines, "Chastity Belt: " .. FormatChastityBeltState(beltEntry, beltModeEntry))
+    table.insert(appliedLines, "Belt state: " .. FormatChastityBeltMode(beltEntry, beltModeEntry))
+
+    local braEntry = FindLastEvent(log, "ChastityBra")
+    table.insert(appliedLines, "Chastity Bra: " .. FormatChastityBraState(braEntry))
+
     table.insert(appliedLines, "Leash: " .. GetLeashState(log))
 
     local otherLines = {}
@@ -483,6 +557,8 @@ local function BuildStatsSections(kittenName)
         { key = "heels", label = "Heels" },
         { key = "bell", label = "Bell" },
         { key = "tailbell", label = "Tail Bell" },
+        { key = "chastitybelt", label = "Chastity Belt" },
+        { key = "chastitybra", label = "Chastity Bra" },
     }
 
     for _, timer in ipairs(timerKeys) do
@@ -508,6 +584,7 @@ local function BuildStatsSections(kittenName)
 
     local heatValue = GetKittenHeatValue(log)
     local orgasmTotal, orgasmToday, orgasmWeek, lastOrgasm = GetOrgasmStats(log)
+    local deniedTotal, deniedSession = GetDeniedOrgasmStats(log)
 
     table.insert(otherLines, "")
     table.insert(otherLines, "Kitten Heat Stats")
@@ -516,6 +593,8 @@ local function BuildStatsSections(kittenName)
     table.insert(otherLines, "Last Orgasm: " .. FormatOrgasmTimestamp(lastOrgasm))
     table.insert(otherLines, "Orgasms Today: " .. tostring(orgasmToday))
     table.insert(otherLines, "Orgasms This Week: " .. tostring(orgasmWeek))
+    table.insert(otherLines, "Denied Orgasms: " .. tostring(deniedTotal))
+    table.insert(otherLines, "Denied Orgasms This Session: " .. tostring(deniedSession))
 
     return appliedLines, otherLines, GetAppliedBindIconFiles(log), heatValue
 end
@@ -670,6 +749,36 @@ local function ShowControlPanel(kitten)
                 HideControlIconPreview()
             end)
         end
+        return y - 24
+    end
+
+    local function IsChastityBeltActive()
+        if not frame.kitten or frame.kitten == "" then
+            return false
+        end
+        local kittenKey = ShortName(frame.kitten)
+        local log = CatgirlBehaviorDB
+            and CatgirlBehaviorDB.BehaviorLog
+            and CatgirlBehaviorDB.BehaviorLog[kittenKey]
+        if not log or type(log) ~= "table" then
+            return false
+        end
+        local beltEntry = FindLastEvent(log, "ChastityBelt")
+        return beltEntry and beltEntry.state == true
+    end
+
+    local function AddChastityModeButton(parent, y, label, command)
+        local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+        btn:SetSize(240, 20)
+        btn:SetPoint("TOPLEFT", 0, y)
+        btn:SetText(label)
+        btn:SetScript("OnClick", function()
+            if not IsChastityBeltActive() then
+                print("|cffff5555[CatGirlControlCenter]|r Chastity belt is not locked on the kitten.")
+                return
+            end
+            WhisperToKitten(frame.kitten, command)
+        end)
         return y - 24
     end
 
@@ -1100,6 +1209,25 @@ local function ShowControlPanel(kitten)
         y = AddHeader(parent, y, "Remove")
         y = AddButton(parent, y, "Remove Paw Mittens", "Your owner removed your paw mittens. Your paws are free again.")
         y = AddDelayRow(parent, y, "Remove Paw Mittens in X Hours", "Your owner set your paw mittens to unlock in %.1f hours (%d) minutes.")
+        return y
+    end)
+
+    -- Collapsible: Chastity (hidden by default)
+    local chastityBlock = CreateCollapsibleBlock("Chastity")
+    BuildCollapsibleContent(chastityBlock, function(parent, y)
+        y = AddHeader(parent, y, "Apply")
+        y = AddButton(parent, y, "Lock Chastity Belt", "Your owner locked a chastity belt around your hips. Your pleasure is sealed away.", "Chastitybelt.tga")
+        y = AddButton(parent, y, "Lock Chastity Bra", "Your owner locked a chastity bra around your chest. Your nipples are sealed away.", "chastitybra.tga")
+        y = y - 4
+        y = AddHeader(parent, y, "Belt Mode")
+        y = AddChastityModeButton(parent, y, "Deny Orgasm", "Your owner set the chastity belt to Deny Orgasm.")
+        y = AddChastityModeButton(parent, y, "Allow Orgasm", "Your owner set the chastity belt to Allow Orgasm.")
+        y = y - 4
+        y = AddHeader(parent, y, "Remove")
+        y = AddButton(parent, y, "Remove Chastity Belt", "Your owner removed your chastity belt.")
+        y = AddDelayRow(parent, y, "Remove Chastity Belt in X Hours", "Your owner set your chastity belt to unlock in %.1f hours (%d) minutes.")
+        y = AddButton(parent, y, "Remove Chastity Bra", "Your owner removed your chastity bra.")
+        y = AddDelayRow(parent, y, "Remove Chastity Bra in X Hours", "Your owner set your chastity bra to unlock in %.1f hours (%d) minutes.")
         return y
     end)
 

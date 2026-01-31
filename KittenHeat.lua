@@ -229,6 +229,20 @@ local function AddHeat(amount)
     end
     heatValue = heatValue + amount
     if heatValue >= 100 then
+        if CCT_HandleOrgasmAttempt then
+            local allowed, newHeat = CCT_HandleOrgasmAttempt(heatValue)
+            if allowed == false then
+                heatValue = ClampNumber(newHeat or 70, 0, 100)
+                if heatData then
+                    heatData.heat = heatValue
+                    heatData.lastSyncHeat = heatValue
+                    heatData.lastSyncAt = GetUnixTime()
+                end
+                LogBehaviorEvent("KittenHeat", math.floor(heatValue + 0.5))
+                UpdateHeatBar()
+                return
+            end
+        end
         TriggerOrgasm()
         return
     end

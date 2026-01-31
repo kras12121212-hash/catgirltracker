@@ -48,6 +48,14 @@ local function bindUnlockedMessage(bind)
         RemoveHeelsBySystem()
         CCT_AutoPrint("|cffffff00[System]:|r The heel lock timer ended.")
 
+    elseif bind == "chastitybelt" then
+        RemoveChastityBeltBySystem()
+        CCT_AutoPrint("|cffffff00[System]:|r The chastity belt timer ended.")
+
+    elseif bind == "chastitybra" then
+        RemoveChastityBraBySystem()
+        CCT_AutoPrint("|cffffff00[System]:|r The chastity bra timer ended.")
+
     else
         CCT_AutoPrint("|cffff0000[System]:|r Unknown bind '" .. bind .. "' unlocked.")
     end
@@ -100,6 +108,8 @@ local function parseBindWhisper(msg)
     elseif msg:find("heels to unlock") then bindType = "heels"
     elseif msg:find("tail bell to unlock") then bindType = "tailbell"
     elseif msg:find("bell to unlock") then bindType = "bell"
+    elseif msg:find("chastity belt to unlock") then bindType = "chastitybelt"
+    elseif msg:find("chastity bra to unlock") then bindType = "chastitybra"
     end
 
     if bindType and minutes then

@@ -161,6 +161,16 @@ local function GetAppliedBindIconFiles(log)
         addIcon("jewel-232-with-bg_ergebnis.tga")
     end
 
+    local beltEntry = FindLastEvent(log, "ChastityBelt")
+    if beltEntry and beltEntry.state == true then
+        addIcon("Chastitybelt.tga")
+    end
+
+    local braEntry = FindLastEvent(log, "ChastityBra")
+    if braEntry and braEntry.state == true then
+        addIcon("chastitybra.tga")
+    end
+
     if GetLeashState(log) == "Leashed" then
         addIcon("leash-232-with-gb_ergebnis.tga")
     end
@@ -236,6 +246,16 @@ local function GetAppliedIconForEntry(entry)
     elseif entry.event == "TrackingJewel" then
         if entry.state == true then
             return "jewel-232-with-bg_ergebnis.tga"
+        end
+
+    elseif entry.event == "ChastityBelt" then
+        if entry.state == true then
+            return "Chastitybelt.tga"
+        end
+
+    elseif entry.event == "ChastityBra" then
+        if entry.state == true then
+            return "chastitybra.tga"
         end
 
     elseif entry.event == "KittenLeash" then

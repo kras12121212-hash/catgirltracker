@@ -58,6 +58,15 @@ CCT_Messages = {
     HEELS_RESPONSE_BALLET = "Ballet boots (12 cm) were equipped and securely locked in place. The higher the heel, the harder it is to walk.",
     HEELS_RESPONSE_GENERIC = "Heels are fitted and locked shut.",
     HEELS_REMOVE = "Your heels have been removed. Your feet are free again.",
+
+    -- Chastity
+    CHASTITY_BELT_APPLY = "A chastity belt has been locked in place. Your kitten's pleasure is sealed away.",
+    CHASTITY_BELT_REMOVE = "The chastity belt has been removed. Your kitten can feel again.",
+    CHASTITY_BELT_DENY = "The chastity belt is set to Deny Orgasm. She will be kept on the edge.",
+    CHASTITY_BELT_ALLOW = "The chastity belt is set to Allow Orgasm. She may climax if she earns it.",
+    CHASTITY_BRA_APPLY = "A chastity bra has been locked in place. Her chest is sealed and denied.",
+    CHASTITY_BRA_REMOVE = "The chastity bra has been removed. Her chest is free again.",
+    CHASTITY_DENY_SHOCK = "Your kitten almost Reached climax but the Magic Chastity Belt keept her in check with a harsh shock to her pussy.",
 }
 
 function CCT_GetMessage(key, ...)
