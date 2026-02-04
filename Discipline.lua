@@ -375,6 +375,10 @@ local function ApplyDiscipline(action, part, strength, sender)
     if CCT_ShowDisciplineIcon then
         CCT_ShowDisciplineIcon(action.icon)
     end
+
+    if CCT_ToyDisciplineSoundEngine and CCT_ToyDisciplineSoundEngine.PlayDisciplineAction then
+        CCT_ToyDisciplineSoundEngine.PlayDisciplineAction(action.id, stage)
+    end
 end
 
 local function HandleDisciplineCommand(msg, sender)

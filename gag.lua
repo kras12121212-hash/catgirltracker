@@ -257,11 +257,15 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
 
         elseif msg:find("inflatable gag") then
             SetInflatableStage(1, true)
+            if CCT_ToyDisciplineSoundEngine and CCT_ToyDisciplineSoundEngine.PlayToyInflateDeflate then
+                CCT_ToyDisciplineSoundEngine.PlayToyInflateDeflate("inflatable_gag", "inflate")
+            end
             print("|cffcc88ffCatgirlTracker:|r An inflatable gag fills your mouth... it's only a little swollen.")
             CCT_RaidNotice("Gag applied: inflatable (stage 1).")
             SendChatMessage(CCT_Msg("GAG_INFLATABLE"), "WHISPER", nil, sender)
 
         elseif msg:find("inflate") and msg:find("gag") then
+            local previousStage = inflatableStage
             if gagState ~= "inflatable" then
                 SetInflatableStage(1, true)
             else
@@ -270,15 +274,26 @@ gagFrame:SetScript("OnEvent", function(_, event, arg1, sender)
                     SetInflatableStage(nextStage, true)
                 end
             end
+            if CCT_ToyDisciplineSoundEngine and CCT_ToyDisciplineSoundEngine.PlayToyInflateDeflate then
+                if inflatableStage > previousStage then
+                    CCT_ToyDisciplineSoundEngine.PlayToyInflateDeflate("inflatable_gag", "inflate")
+                end
+            end
             print("|cffff99ffCatgirlTracker:|r The inflatable gag swells tighter in your mouth...")
             CCT_RaidNotice(string.format("Gag inflated to stage %d.", inflatableStage))
             SendChatMessage(CCT_Msg("GAG_INFLATE"), "WHISPER", nil, sender)
 
         elseif msg:find("deflate") and msg:find("gag") then
             if gagState == "inflatable" then
+                local previousStage = inflatableStage
                 local nextStage = math.max(inflatableStage - 1, 1)
                 if nextStage ~= inflatableStage then
                     SetInflatableStage(nextStage, true)
+                end
+                if CCT_ToyDisciplineSoundEngine and CCT_ToyDisciplineSoundEngine.PlayToyInflateDeflate then
+                    if inflatableStage < previousStage then
+                        CCT_ToyDisciplineSoundEngine.PlayToyInflateDeflate("inflatable_gag", "deflate")
+                    end
                 end
                 print("|cff88ffccCatgirlTracker:|r The inflatable gag softens and loosens a bit...")
                 CCT_RaidNotice(string.format("Gag deflated to stage %d.", inflatableStage))

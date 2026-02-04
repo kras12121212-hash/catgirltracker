@@ -8,6 +8,7 @@ ChatMessages.lua
 KittenHeatConfig.lua
 KittenHeat.lua
 kitenSubmissivnesTracker.lua
+soundengine-Toys-Discipline.lua
 toys.lua
 Discipline.lua
 gag.lua

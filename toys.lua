@@ -329,13 +329,22 @@ local function SetToyApplied(toy, applied, sender)
     state.applied = applied and true or false
     LogEvent(ToyEventName(toy.id), state.applied)
     if state.applied and toy.inflate and state.inflate < 1 then
+        local previousInflate = state.inflate
         state.inflate = 1
         LogEvent(ToyInflateEventName(toy.id), state.inflate)
+        if CCT_ToyDisciplineSoundEngine and CCT_ToyDisciplineSoundEngine.PlayToyInflateDeflate then
+            if state.inflate > previousInflate then
+                CCT_ToyDisciplineSoundEngine.PlayToyInflateDeflate(toy.id, "inflate")
+            end
+        end
     end
     if not state.applied then
         if toy.vibe then
             state.vibe = 0
             LogEvent(ToyVibeEventName(toy.id), 0)
+            if CCT_ToyDisciplineSoundEngine and CCT_ToyDisciplineSoundEngine.SetToyVibeState then
+                CCT_ToyDisciplineSoundEngine.SetToyVibeState(toy.id, 0)
+            end
         end
         if toy.inflate then
             state.inflate = 0
@@ -378,6 +387,9 @@ local function SetToyVibe(toy, level, sender)
     end
     state.vibe = stage
     LogEvent(ToyVibeEventName(toy.id), stage)
+    if CCT_ToyDisciplineSoundEngine and CCT_ToyDisciplineSoundEngine.SetToyVibeState then
+        CCT_ToyDisciplineSoundEngine.SetToyVibeState(toy.id, stage)
+    end
     if sender then
         local key = GetToyMessageKey(toy, "VIBE_" .. stage)
         SendOwnerMessageWithFallback(sender, key, "TOY_VIBE_SET", toy.label, stage)
@@ -394,11 +406,19 @@ local function SetToyInflateStage(toy, stage, sender, key)
     end
     local clamped = ClampStage(stage, 5, false)
     local state = toyStates[toy.id]
+    local previousInflate = state.inflate
     if state.inflate == clamped then
         return
     end
     state.inflate = clamped
     LogEvent(ToyInflateEventName(toy.id), clamped)
+    if CCT_ToyDisciplineSoundEngine and CCT_ToyDisciplineSoundEngine.PlayToyInflateDeflate then
+        if clamped > previousInflate then
+            CCT_ToyDisciplineSoundEngine.PlayToyInflateDeflate(toy.id, "inflate")
+        elseif clamped < previousInflate then
+            CCT_ToyDisciplineSoundEngine.PlayToyInflateDeflate(toy.id, "deflate")
+        end
+    end
     if sender then
         local suffix = (key == "TOY_DEFLATE_SET") and ("DEFLATE_" .. clamped) or ("INFLATE_" .. clamped)
         local msgKey = GetToyMessageKey(toy, suffix)
@@ -446,6 +466,9 @@ local function ShockToy(toy, level, sender)
         SendOwnerMessageWithFallback(sender, key, "TOY_SHOCK", toy.label, stage)
     end
     NotifyToyLocal(string.format("%s shock intensity %d.", toy.label, stage))
+    if CCT_ToyDisciplineSoundEngine and CCT_ToyDisciplineSoundEngine.PlayToyShock then
+        CCT_ToyDisciplineSoundEngine.PlayToyShock(stage)
+    end
 end
 
 local function RestoreToyStates()
@@ -522,6 +545,9 @@ f:RegisterEvent("CHAT_MSG_ADDON")
 f:SetScript("OnEvent", function(_, event, ...)
     if event == "PLAYER_LOGIN" then
         RestoreToyStates()
+        if CCT_ToyDisciplineSoundEngine and CCT_ToyDisciplineSoundEngine.SyncToyVibes then
+            CCT_ToyDisciplineSoundEngine.SyncToyVibes(toyStates)
+        end
         if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then
             C_ChatInfo.RegisterAddonMessagePrefix(addonPrefix)
         end
