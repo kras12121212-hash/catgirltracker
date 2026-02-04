@@ -1,6 +1,6 @@
 ﻿local addonPrefix = "CatgirlTracker"
 local kittyname = UnitName("player")
-local masterName = "Hollykitten"
+local masterName = "Holykitten"
 local master = nil
 local masterOnline = false
 local RESYNC_PAUSE_SECONDS = 60
@@ -427,7 +427,7 @@ local function EnsureSyncDebugFrame()
         return
     end
     syncDebugFrame = CreateFrame("Frame", "CatgirlSyncDebugFrame", UIParent, "BackdropTemplate")
-    syncDebugFrame:SetSize(360, 250)
+    syncDebugFrame:SetSize(360, 300)
     syncDebugFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -30, -120)
     syncDebugFrame:SetBackdrop({
         bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -458,8 +458,26 @@ local function EnsureSyncDebugFrame()
     syncDebugFrame.statusText:SetPoint("TOPLEFT", syncDebugFrame.noticeText, "BOTTOMLEFT", 0, -6)
     syncDebugFrame.statusText:SetText("Status: Idle")
 
+    syncDebugFrame.rosterText = syncDebugFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    syncDebugFrame.rosterText:SetPoint("TOPLEFT", syncDebugFrame.statusText, "BOTTOMLEFT", 0, -6)
+    syncDebugFrame.rosterText:SetWidth(330)
+    syncDebugFrame.rosterText:SetJustifyH("LEFT")
+    syncDebugFrame.rosterText:SetText("Roster: n/a")
+
+    syncDebugFrame.ownerStatusText = syncDebugFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    syncDebugFrame.ownerStatusText:SetPoint("TOPLEFT", syncDebugFrame.rosterText, "BOTTOMLEFT", 0, -6)
+    syncDebugFrame.ownerStatusText:SetWidth(330)
+    syncDebugFrame.ownerStatusText:SetJustifyH("LEFT")
+    syncDebugFrame.ownerStatusText:SetText("Owner: n/a")
+
+    syncDebugFrame.masterStatusText = syncDebugFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    syncDebugFrame.masterStatusText:SetPoint("TOPLEFT", syncDebugFrame.ownerStatusText, "BOTTOMLEFT", 0, -6)
+    syncDebugFrame.masterStatusText:SetWidth(330)
+    syncDebugFrame.masterStatusText:SetJustifyH("LEFT")
+    syncDebugFrame.masterStatusText:SetText("Master: n/a")
+
     syncDebugFrame.ownerQueueText = syncDebugFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    syncDebugFrame.ownerQueueText:SetPoint("TOPLEFT", syncDebugFrame.statusText, "BOTTOMLEFT", 0, -6)
+    syncDebugFrame.ownerQueueText:SetPoint("TOPLEFT", syncDebugFrame.masterStatusText, "BOTTOMLEFT", 0, -6)
     syncDebugFrame.ownerQueueText:SetWidth(330)
     syncDebugFrame.ownerQueueText:SetJustifyH("LEFT")
     syncDebugFrame.ownerQueueText:SetText("Owner pending: 0")
@@ -544,6 +562,33 @@ local function UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild,
     recipients = recipients or {}
     EnsureSyncDebugFrame()
     syncDebugFrame:Show()
+
+    local rosterCount = nil
+    if GetNumGuildMembers then
+        rosterCount = GetNumGuildMembers()
+    end
+    if IsInGuild and not IsInGuild() then
+        syncDebugFrame.rosterText:SetText("Roster: not in guild")
+    elseif rosterCount and rosterCount > 0 then
+        syncDebugFrame.rosterText:SetText("Roster: " .. rosterCount .. " members")
+    else
+        syncDebugFrame.rosterText:SetText("Roster: 0 (not ready?)")
+    end
+
+    local function FormatRecipientStatus(label, info)
+        if not info then
+            return label .. ": n/a"
+        end
+        local name = info.name or "unknown"
+        local status = info.online == true and "online" or "offline"
+        if info.online == nil then
+            status = "unknown"
+        end
+        return string.format("%s: %s (%s)", label, name, status)
+    end
+
+    syncDebugFrame.ownerStatusText:SetText(FormatRecipientStatus("Owner", recipients.owner))
+    syncDebugFrame.masterStatusText:SetText(FormatRecipientStatus("Master", recipients.master))
 
     local countsOwner = {}
     local countsMaster = {}

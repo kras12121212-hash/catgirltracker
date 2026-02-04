@@ -9,7 +9,7 @@ end
 
 local print = AutoPrint
 local addonPrefix = "CatgirlTracker"
-local masterName = "Hollykitten" -- short name only (no realm)
+local masterName = "Holykitten" -- short name only (no realm)
 local myName = UnitName("player")
 local myShortName = myName:match("^[^%-]+")
 local TAIL_BELL_CLOSE_RANGE = 0.02
