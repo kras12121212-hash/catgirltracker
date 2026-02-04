@@ -12,6 +12,7 @@ local sendState = {
     lastThrottleResult = nil,
     lastSendLabel = "Idle",
     lastSendAt = 0,
+    ownerPriorityActive = false,
 }
 
 -- Route module prints through the shared debug gate.
@@ -257,8 +258,8 @@ local function SendEntryToRecipients(entry, message, recipients)
 
     local sent = false
     local throttled = false
-    if recipients.master then
-        local ok, wasThrottled = SendToRecipient(entry, "master", recipients.master, message)
+    if recipients.owner and not recipients.owner.alsoMaster then
+        local ok, wasThrottled = SendToRecipient(entry, "owner", recipients.owner, message)
         if wasThrottled then
             throttled = true
         end
@@ -270,8 +271,8 @@ local function SendEntryToRecipients(entry, message, recipients)
             return sent, true
         end
     end
-    if recipients.owner and not recipients.owner.alsoMaster then
-        local ok, wasThrottled = SendToRecipient(entry, "owner", recipients.owner, message)
+    if recipients.master and not sendState.ownerPriorityActive then
+        local ok, wasThrottled = SendToRecipient(entry, "master", recipients.master, message)
         if wasThrottled then
             throttled = true
         end
@@ -730,6 +731,19 @@ C_Timer.NewTicker(1.2, function()
         UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
         return
     end
+
+    local ownerPendingTotal = 0
+    if recipients.owner and recipients.owner.online == true and not recipients.owner.alsoMaster then
+        ownerPendingTotal = CountPendingResyncForRecipient("owner")
+            + CountPendingListForRecipient(logTableBehavior, "owner")
+            + CountPendingBindTimersForRecipient(logTableBehavior, "owner")
+            + CountPendingListForRecipient(logTablePet, "owner")
+            + CountPendingListForRecipient(logTableZone, "owner")
+            + CountPendingListForRecipient(logTableEmote, "owner")
+            + CountPendingListForRecipient(logTableGuild, "owner")
+            + CountPendingListForRecipient(logTableLocation, "owner")
+    end
+    sendState.ownerPriorityActive = ownerPendingTotal > 0
 
     local sentSomething = false
     SetSendLabel("Idle")
