@@ -4,6 +4,8 @@ local masterName = "Holykitten"
 local master = nil
 local masterOnline = false
 local RESYNC_PAUSE_SECONDS = 60
+local RECIPIENT_REFRESH_SECONDS = 10
+local ROSTER_REQUEST_COOLDOWN = 10
 local BIND_KEYS = { "gag", "earmuffs", "blindfold", "mittens", "heels", "bell", "tailbell", "chastitybelt", "chastitybra" }
 local resyncQueue = {}
 local sendState = {
@@ -14,6 +16,11 @@ local sendState = {
     lastSendAt = 0,
     ownerPriorityActive = false,
 }
+local cachedRecipients = nil
+local cachedRecipientsAt = 0
+local lastRosterRequestAt = 0
+local syncOrder = { "resync", "pet", "zone", "behavior", "bind", "emote", "guild", "location" }
+local syncOrderIndex = 1
 
 -- Route module prints through the shared debug gate.
 local function AutoPrint(...)
@@ -29,6 +36,10 @@ local function GetUnixNow()
         return time()
     end
     return 0
+end
+
+local function IsDebugEnabled()
+    return CCT_IsDebugEnabled and CCT_IsDebugEnabled()
 end
 
 local function SetSendLabel(label)
@@ -73,6 +84,11 @@ local function ShortName(name)
 end
 
 local function RequestGuildRoster()
+    local now = GetUnixNow()
+    if now > 0 and (now - lastRosterRequestAt) < ROSTER_REQUEST_COOLDOWN then
+        return
+    end
+    lastRosterRequestAt = now
     if C_GuildInfo and C_GuildInfo.GuildRoster then
         C_GuildInfo.GuildRoster()
     elseif GuildRoster then
@@ -157,6 +173,34 @@ local function BuildRecipients()
 
     NormalizeRecipients(recipients)
     return recipients
+end
+
+local function InvalidateRecipientsCache()
+    cachedRecipients = nil
+    cachedRecipientsAt = 0
+end
+
+local function BuildRecipientsCached()
+    local now = GetUnixNow()
+    if cachedRecipients and (now - cachedRecipientsAt) < RECIPIENT_REFRESH_SECONDS then
+        return cachedRecipients
+    end
+    cachedRecipients = BuildRecipients()
+    cachedRecipientsAt = now
+    return cachedRecipients
+end
+
+local function AnyRecipientOnline(recipients)
+    return (recipients.owner and recipients.owner.online) or (recipients.master and recipients.master.online)
+end
+
+local function NextSyncKey()
+    local key = syncOrder[syncOrderIndex]
+    syncOrderIndex = syncOrderIndex + 1
+    if syncOrderIndex > #syncOrder then
+        syncOrderIndex = 1
+    end
+    return key
 end
 
 local function EnsureRecipientTracking(entry)
@@ -554,7 +598,7 @@ local function CountPendingResyncForRecipient(recipientKey)
 end
 
 local function UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
-    if not (CCT_IsDebugEnabled and CCT_IsDebugEnabled()) then
+    if not IsDebugEnabled() then
         if syncDebugFrame then
             syncDebugFrame:Hide()
         end
@@ -591,6 +635,14 @@ local function UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild,
     syncDebugFrame.ownerStatusText:SetText(FormatRecipientStatus("Owner", recipients.owner))
     syncDebugFrame.masterStatusText:SetText(FormatRecipientStatus("Master", recipients.master))
 
+    local statusText = "Status: Idle"
+    local now = GetUnixNow()
+    if sendState.throttleUntil and now < sendState.throttleUntil then
+        local remaining = math.max(0, sendState.throttleUntil - now)
+        statusText = string.format("Status: Paused %ds", remaining)
+    end
+    syncDebugFrame.statusText:SetText(statusText)
+
     local countsOwner = {}
     local countsMaster = {}
 
@@ -620,13 +672,6 @@ local function UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild,
             + countsMaster.zone + countsMaster.emote + countsMaster.guild + countsMaster.location
     end
 
-    local statusText = "Status: Idle"
-    local now = GetUnixNow()
-    if sendState.throttleUntil and now < sendState.throttleUntil then
-        local remaining = math.max(0, sendState.throttleUntil - now)
-        statusText = string.format("Status: Paused %ds", remaining)
-    end
-    syncDebugFrame.statusText:SetText(statusText)
     if recipients.owner then
         syncDebugFrame.ownerQueueText:SetText(string.format(
             "Owner pending: %d (Resync:%d Behavior:%d Bind:%d Pet:%d Zone:%d Emote:%d Guild:%d Location:%d)",
@@ -673,17 +718,26 @@ local f = CreateFrame("Frame")
 C_ChatInfo.RegisterAddonMessagePrefix(addonPrefix)
 
 f:RegisterEvent("CHAT_MSG_ADDON")
-f:SetScript("OnEvent", function(_, event, prefix, msg, channel, sender)
-    if event == "CHAT_MSG_ADDON" and prefix == addonPrefix then
+f:RegisterEvent("GUILD_ROSTER_UPDATE")
+f:RegisterEvent("PLAYER_GUILD_UPDATE")
+f:SetScript("OnEvent", function(_, event, ...)
+    if event == "CHAT_MSG_ADDON" then
+        local prefix, msg, channel, sender = ...
+        if prefix ~= addonPrefix then
+            return
+        end
         local myname = UnitName("player")
         local shortSender = ShortName(sender)
         if msg == "master" and shortSender ~= myname then
             if shortSender and shortSender:lower() == masterName:lower() then
                 master = sender
                 masterOnline = true
+                InvalidateRecipientsCache()
                 print("|cffffff00CatgirlTracker:|r Master has come online nya your report will be compiled !! " .. master)
             end
         end
+    elseif event == "GUILD_ROSTER_UPDATE" or event == "PLAYER_GUILD_UPDATE" then
+        InvalidateRecipientsCache()
     end
 end)
 
@@ -719,11 +773,17 @@ C_Timer.NewTicker(1.2, function()
     local logTableEmote = CatgirlEmoteDB.EmoteLog[kittyname]
     local logTableLocation = CatgirlLocationDB.LocationLog[kittyname]
 
-    local recipients = BuildRecipients()
-    UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
+    local recipients = BuildRecipientsCached()
     if not (recipients.master or recipients.owner) then
+        UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
         return
     end
+    if not AnyRecipientOnline(recipients) then
+        SetSendLabel("Idle (recipients offline)")
+        UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
+        return
+    end
+    UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
 
     local nowUnix = GetUnixNow()
     if sendState.throttleUntil and nowUnix < sendState.throttleUntil then
@@ -734,14 +794,16 @@ C_Timer.NewTicker(1.2, function()
 
     local ownerPendingTotal = 0
     if recipients.owner and recipients.owner.online == true and not recipients.owner.alsoMaster then
-        ownerPendingTotal = CountPendingResyncForRecipient("owner")
-            + CountPendingListForRecipient(logTableBehavior, "owner")
-            + CountPendingBindTimersForRecipient(logTableBehavior, "owner")
-            + CountPendingListForRecipient(logTablePet, "owner")
-            + CountPendingListForRecipient(logTableZone, "owner")
-            + CountPendingListForRecipient(logTableEmote, "owner")
-            + CountPendingListForRecipient(logTableGuild, "owner")
-            + CountPendingListForRecipient(logTableLocation, "owner")
+        if IsDebugEnabled() then
+            ownerPendingTotal = CountPendingResyncForRecipient("owner")
+                + CountPendingListForRecipient(logTableBehavior, "owner")
+                + CountPendingBindTimersForRecipient(logTableBehavior, "owner")
+                + CountPendingListForRecipient(logTablePet, "owner")
+                + CountPendingListForRecipient(logTableZone, "owner")
+                + CountPendingListForRecipient(logTableEmote, "owner")
+                + CountPendingListForRecipient(logTableGuild, "owner")
+                + CountPendingListForRecipient(logTableLocation, "owner")
+        end
     end
     sendState.ownerPriorityActive = ownerPendingTotal > 0
 
@@ -782,194 +844,198 @@ C_Timer.NewTicker(1.2, function()
         return messages
     end
 
-    if not sentSomething and #resyncQueue > 0 then
-        local i = 1
-        while i <= #resyncQueue do
-            local item = resyncQueue[i]
-            if not item or not item.entry or not HasPendingRecipients(item.entry, recipients) then
-                table.remove(resyncQueue, i)
-            else
-                SetSendLabel(string.format("Resync %d/%d: %s", i, #resyncQueue, item.label or "item"))
-                local sent, throttled = SendEntryToRecipients(item.entry, item.message, recipients)
-                if throttled then
-                    SetSendLabel(sendState.lastSendLabel .. " (throttled)")
-                    UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
-                    return
-                end
-                if sent then
+    local syncKey = NextSyncKey()
+
+    if syncKey == "resync" then
+        if #resyncQueue > 0 then
+            local i = 1
+            while i <= #resyncQueue do
+                local item = resyncQueue[i]
+                if not item or not item.entry or not HasPendingRecipients(item.entry, recipients) then
                     table.remove(resyncQueue, i)
-                    sentSomething = true
-                end
-                break
-            end
-        end
-    end
-
-    if not sentSomething and logTablePet then
-        for i, entry in ipairs(logTablePet) do
-            if HasPendingRecipients(entry, recipients) then
-                SetSendLabel(string.format("PetLog %d/%d", i, #logTablePet))
-                local msg = string.format("PetLog, Timestamp:%s, EVENT:%s", entry.timestamp, entry.event, entry.pet)
-                print(msg)
-                local sent, throttled = SendEntryToRecipients(entry, msg, recipients)
-                if throttled then
-                    SetSendLabel(sendState.lastSendLabel .. " (throttled)")
-                    UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
-                    return
-                end
-                if sent then
-                    sentSomething = true
+                else
+                    SetSendLabel(string.format("Resync %d/%d: %s", i, #resyncQueue, item.label or "item"))
+                    local sent, throttled = SendEntryToRecipients(item.entry, item.message, recipients)
+                    if throttled then
+                        SetSendLabel(sendState.lastSendLabel .. " (throttled)")
+                        UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
+                        return
+                    end
+                    if sent then
+                        table.remove(resyncQueue, i)
+                        sentSomething = true
+                    end
                     break
                 end
             end
         end
-    end
-
-    if not sentSomething and logTableZone then
-        for i, entry in ipairs(logTableZone) do
-            if HasPendingRecipients(entry, recipients) then
-                SetSendLabel(string.format("ZoneLog %d/%d", i, #logTableZone))
-                local msg = string.format(
-                    "ZoneLog, tiemstamp:%s, instanceType:%s, zone:%s",
-                    entry.timestamp,
-                    entry.instanceType,
-                    entry.zone
-                )
-                print(msg)
-                local sent, throttled = SendEntryToRecipients(entry, msg, recipients)
-                if throttled then
-                    SetSendLabel(sendState.lastSendLabel .. " (throttled)")
-                    UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
-                    return
-                end
-                if sent then
-                    sentSomething = true
-                    break
+    elseif syncKey == "pet" then
+        if logTablePet then
+            for i, entry in ipairs(logTablePet) do
+                if HasPendingRecipients(entry, recipients) then
+                    SetSendLabel(string.format("PetLog %d/%d", i, #logTablePet))
+                    local msg = string.format("PetLog, Timestamp:%s, EVENT:%s", entry.timestamp, entry.event, entry.pet)
+                    print(msg)
+                    local sent, throttled = SendEntryToRecipients(entry, msg, recipients)
+                    if throttled then
+                        SetSendLabel(sendState.lastSendLabel .. " (throttled)")
+                        UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
+                        return
+                    end
+                    if sent then
+                        sentSomething = true
+                        break
+                    end
                 end
             end
         end
-    end
-
-    if not sentSomething and logTableBehavior then
-        for i, entry in ipairs(logTableBehavior) do
-            if HasPendingRecipients(entry, recipients) then
-                if entry.event == "BellJingle" or entry.event == "TailBellJingle" then
-                    MarkAllRecipients(entry, recipients)
-                    break
-                end
-                SetSendLabel(string.format("BehaviorLog %d/%d", i, #logTableBehavior))
-                local msg = BuildBehaviorMessage(entry)
-                print(msg)
-                local sent, throttled = SendEntryToRecipients(entry, msg, recipients)
-                if throttled then
-                    SetSendLabel(sendState.lastSendLabel .. " (throttled)")
-                    UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
-                    return
-                end
-                if sent then
-                    sentSomething = true
-                    break
-                end
-            end
-        end
-    end
-
-    if not sentSomething and logTableBehavior then
-        for _, bind in ipairs(BIND_KEYS) do
-            local entry = logTableBehavior[bind]
-            if entry and entry.unlockAt and HasPendingRecipients(entry, recipients) then
-                SetSendLabel("BindTimer " .. bind)
-                local msg = string.format(
-                    "BindTimer, bind:%s, unlockAt:%s, durationMinutes:%s",
-                    SafeField(bind),
-                    SafeField(entry.unlockAt),
-                    SafeField(entry.durationMinutes)
-                )
-                print(msg)
-                local sent, throttled = SendEntryToRecipients(entry, msg, recipients)
-                if throttled then
-                    SetSendLabel(sendState.lastSendLabel .. " (throttled)")
-                    UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
-                    return
-                end
-                if sent then
-                    sentSomething = true
-                    break
+    elseif syncKey == "zone" then
+        if logTableZone then
+            for i, entry in ipairs(logTableZone) do
+                if HasPendingRecipients(entry, recipients) then
+                    SetSendLabel(string.format("ZoneLog %d/%d", i, #logTableZone))
+                    local msg = string.format(
+                        "ZoneLog, tiemstamp:%s, instanceType:%s, zone:%s",
+                        entry.timestamp,
+                        entry.instanceType,
+                        entry.zone
+                    )
+                    print(msg)
+                    local sent, throttled = SendEntryToRecipients(entry, msg, recipients)
+                    if throttled then
+                        SetSendLabel(sendState.lastSendLabel .. " (throttled)")
+                        UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
+                        return
+                    end
+                    if sent then
+                        sentSomething = true
+                        break
+                    end
                 end
             end
         end
-    end
-
-    if not sentSomething and logTableEmote then
-        for i, entry in ipairs(logTableEmote) do
-            if HasPendingRecipients(entry, recipients) then
-                SetSendLabel(string.format("EmoteLog %d/%d", i, #logTableEmote))
-                local msg = string.format(
-                    "EmoteLog, timestamp:%s, unixtime:%s, sender:%s, action:%s",
-                    SafeField(entry.timestamp),
-                    SafeField(entry.unixtime),
-                    SafeField(entry.sender),
-                    SafeField(entry.action)
-                )
-                print(msg)
-                local sent, throttled = SendEntryToRecipients(entry, msg, recipients)
-                if throttled then
-                    SetSendLabel(sendState.lastSendLabel .. " (throttled)")
-                    UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
-                    return
-                end
-                if sent then
-                    sentSomething = true
-                    break
+    elseif syncKey == "behavior" then
+        if logTableBehavior then
+            for i, entry in ipairs(logTableBehavior) do
+                if HasPendingRecipients(entry, recipients) then
+                    if entry.event == "BellJingle" or entry.event == "TailBellJingle" then
+                        MarkAllRecipients(entry, recipients)
+                        break
+                    end
+                    SetSendLabel(string.format("BehaviorLog %d/%d", i, #logTableBehavior))
+                    local msg = BuildBehaviorMessage(entry)
+                    print(msg)
+                    local sent, throttled = SendEntryToRecipients(entry, msg, recipients)
+                    if throttled then
+                        SetSendLabel(sendState.lastSendLabel .. " (throttled)")
+                        UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
+                        return
+                    end
+                    if sent then
+                        sentSomething = true
+                        break
+                    end
                 end
             end
         end
-    end
-
-    if not sentSomething and logTableGuild then
-        for i, entry in ipairs(logTableGuild) do
-            if HasPendingRecipients(entry, recipients) then
-                SetSendLabel(string.format("GuildLog %d/%d", i, #logTableGuild))
-                local messages = BuildGuildMessages(entry)
-                local sent, throttled = SendEntryToRecipients(entry, messages, recipients)
-                if throttled then
-                    SetSendLabel(sendState.lastSendLabel .. " (throttled)")
-                    UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
-                    return
-                end
-                if sent then
-                    sentSomething = true
-                    break
+    elseif syncKey == "bind" then
+        if logTableBehavior then
+            for _, bind in ipairs(BIND_KEYS) do
+                local entry = logTableBehavior[bind]
+                if entry and entry.unlockAt and HasPendingRecipients(entry, recipients) then
+                    SetSendLabel("BindTimer " .. bind)
+                    local msg = string.format(
+                        "BindTimer, bind:%s, unlockAt:%s, durationMinutes:%s",
+                        SafeField(bind),
+                        SafeField(entry.unlockAt),
+                        SafeField(entry.durationMinutes)
+                    )
+                    print(msg)
+                    local sent, throttled = SendEntryToRecipients(entry, msg, recipients)
+                    if throttled then
+                        SetSendLabel(sendState.lastSendLabel .. " (throttled)")
+                        UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
+                        return
+                    end
+                    if sent then
+                        sentSomething = true
+                        break
+                    end
                 end
             end
         end
-    end
-
-    if not sentSomething and logTableLocation then
-        for i, entry in ipairs(logTableLocation) do
-            if HasPendingRecipients(entry, recipients) then
-                SetSendLabel(string.format("LocationLog %d/%d", i, #logTableLocation))
-                local msg = string.format(
-                    "LocationLog, timestamp:%s, unixtime:%s, mapID:%s, x:%s, y:%s, instanceID:%s",
-                    SafeField(entry.timestamp),
-                    SafeField(entry.unixtime),
-                    SafeField(entry.mapID),
-                    SafeField(entry.x),
-                    SafeField(entry.y),
-                    SafeField(entry.instanceID)
-                )
-                if CCT_AutoPrint then
-                    CCT_AutoPrint(msg)
+    elseif syncKey == "emote" then
+        if logTableEmote then
+            for i, entry in ipairs(logTableEmote) do
+                if HasPendingRecipients(entry, recipients) then
+                    SetSendLabel(string.format("EmoteLog %d/%d", i, #logTableEmote))
+                    local msg = string.format(
+                        "EmoteLog, timestamp:%s, unixtime:%s, sender:%s, action:%s",
+                        SafeField(entry.timestamp),
+                        SafeField(entry.unixtime),
+                        SafeField(entry.sender),
+                        SafeField(entry.action)
+                    )
+                    print(msg)
+                    local sent, throttled = SendEntryToRecipients(entry, msg, recipients)
+                    if throttled then
+                        SetSendLabel(sendState.lastSendLabel .. " (throttled)")
+                        UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
+                        return
+                    end
+                    if sent then
+                        sentSomething = true
+                        break
+                    end
                 end
-                local sent, throttled = SendEntryToRecipients(entry, msg, recipients)
-                if throttled then
-                    SetSendLabel(sendState.lastSendLabel .. " (throttled)")
-                    UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
-                    return
+            end
+        end
+    elseif syncKey == "guild" then
+        if logTableGuild then
+            for i, entry in ipairs(logTableGuild) do
+                if HasPendingRecipients(entry, recipients) then
+                    SetSendLabel(string.format("GuildLog %d/%d", i, #logTableGuild))
+                    local messages = BuildGuildMessages(entry)
+                    local sent, throttled = SendEntryToRecipients(entry, messages, recipients)
+                    if throttled then
+                        SetSendLabel(sendState.lastSendLabel .. " (throttled)")
+                        UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
+                        return
+                    end
+                    if sent then
+                        sentSomething = true
+                        break
+                    end
                 end
-                if sent then
-                    sentSomething = true
-                    break
+            end
+        end
+    elseif syncKey == "location" then
+        if logTableLocation then
+            for i, entry in ipairs(logTableLocation) do
+                if HasPendingRecipients(entry, recipients) then
+                    SetSendLabel(string.format("LocationLog %d/%d", i, #logTableLocation))
+                    local msg = string.format(
+                        "LocationLog, timestamp:%s, unixtime:%s, mapID:%s, x:%s, y:%s, instanceID:%s",
+                        SafeField(entry.timestamp),
+                        SafeField(entry.unixtime),
+                        SafeField(entry.mapID),
+                        SafeField(entry.x),
+                        SafeField(entry.y),
+                        SafeField(entry.instanceID)
+                    )
+                    if CCT_AutoPrint then
+                        CCT_AutoPrint(msg)
+                    end
+                    local sent, throttled = SendEntryToRecipients(entry, msg, recipients)
+                    if throttled then
+                        SetSendLabel(sendState.lastSendLabel .. " (throttled)")
+                        UpdateSyncDebugFrame(recipients, logTableBehavior, logTableGuild, logTablePet, logTableZone, logTableEmote, logTableLocation)
+                        return
+                    end
+                    if sent then
+                        sentSomething = true
+                        break
+                    end
                 end
             end
         end
