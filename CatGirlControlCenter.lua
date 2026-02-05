@@ -2278,6 +2278,24 @@ local function ShowControlPanel(kitten)
         end
     )
 
+    local chatAdvertiseBox
+    chatAdvertiseBox, y = AddCheckbox(
+        settingsContent,
+        y,
+        "Chat Advertise",
+        function()
+            if CCT_IsModuleEnabled then
+                return CCT_IsModuleEnabled("ChatAdvertise")
+            end
+            return false
+        end,
+        function(value)
+            if CCT_SetModuleEnabled then
+                CCT_SetModuleEnabled("ChatAdvertise", value)
+            end
+        end
+    )
+
     y = y - 10
     local mapRangeLabel = settingsContent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     mapRangeLabel:SetPoint("TOPLEFT", 0, y)

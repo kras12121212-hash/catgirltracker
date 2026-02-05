@@ -9,6 +9,7 @@ local defaultModules = {
     KittenMapShow = false,
     MaidTasks = true,
     LayerInvite = true,
+    ChatAdvertise = false,
 }
 
 for name, defaultValue in pairs(defaultModules) do

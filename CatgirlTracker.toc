@@ -38,3 +38,4 @@ LockingKittenHeels.lua
 KittenLockTracker.lua
 CreateLocalMacro.lua
 PetTracker.lua
+catgirladvertise.lua
