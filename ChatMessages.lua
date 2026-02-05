@@ -38,6 +38,17 @@ CCT_Messages = {
     LEASH_APPLY = "You have clipped the leash onto %s... There's no escape now, nya~",
     LEASH_REMOVE = "The leash slips free from %s. She's free... For now, nya~",
 
+    -- Layer group invites
+    LAYER_OWNER_INVITE_SENT = "Invited you to my group nya~",
+    LAYER_OWNER_NEED_LEAVE = "curespbonding: I'm in a group and need to leave before inviting you nya~",
+    LAYER_LIST_RESPONSE = "%s is on layer %s",
+    LAYER_LIST_MISSING = "%s Missing Nova World Buffs or not Determined Yet",
+    LAYER_INVITE_PROMISE = "%s is curently in a group but promises to invite you to layer change in %d minutes nya !",
+    LAYER_INVITE_LEAVE = "%s was good Kitty and invited \"%s\" to a new layer nya !",
+    LAYER_INVITE_BUSY = "Sorry %s does not have time to invite you right now nya.....",
+    LAYER_INVITE_SUCCESS = "%s was sucefully invited to the requested layer.",
+    LAYER_LOGIN_ANNOUNCE = "Uses CatGirlTracker V1.2 get it in our nya Discord. Use Llist  and then Linv6 to get layer 6 invite even without Addonn nya!. but the Addon can do a lot nya more~",
+
     -- Blindfold
     BLINDFOLD_LIGHT = "Oh nyo! A blurry light blindfold... I should better behave, or it may get worse!",
     BLINDFOLD_KITTY = "Wearing a cute kitty blindfold... Vision limited, nya~",

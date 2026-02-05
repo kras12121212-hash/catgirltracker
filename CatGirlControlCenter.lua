@@ -1901,6 +1901,7 @@ local function ShowControlPanel(kitten)
     BuildCollapsibleContent(trackingBlock, function(parent, y)
         y = AddHeader(parent, y, "Apply")
         y = AddButton(parent, y, "Attach Tracking Jewel", "Your owner attached a glowing jewel to your collar. Its magic will track your every move!", "jewel-232-with-bg_ergebnis.tga")
+        y = AddButton(parent, y, "Force Kitty Group", "Owner Forces you to Create a group")
         y = y - 4
         y = AddHeader(parent, y, "Remove")
         y = AddButton(parent, y, "Remove Tracking Jewel", "Your owner removed the glowing jewel from your collar. Its magic will no longer track you.")
@@ -2255,6 +2256,24 @@ local function ShowControlPanel(kitten)
         function(value)
             if CCT_SetModuleEnabled then
                 CCT_SetModuleEnabled("KittenMapShow", value)
+            end
+        end
+    )
+
+    local layerInviteBox
+    layerInviteBox, y = AddCheckbox(
+        settingsContent,
+        y,
+        "Layer invite tools (Llist/Linv)",
+        function()
+            if CCT_IsModuleEnabled then
+                return CCT_IsModuleEnabled("LayerInvite")
+            end
+            return true
+        end,
+        function(value)
+            if CCT_SetModuleEnabled then
+                CCT_SetModuleEnabled("LayerInvite", value)
             end
         end
     )

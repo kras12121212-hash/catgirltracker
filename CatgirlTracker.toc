@@ -5,6 +5,7 @@
 
 Debug.lua
 ChatMessages.lua
+KittyLayerGroup.lua
 KittenHeatConfig.lua
 KittenHeat.lua
 kitenSubmissivnesTracker.lua

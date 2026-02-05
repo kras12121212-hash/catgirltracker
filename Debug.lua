@@ -8,6 +8,7 @@ local defaultModules = {
     PetTracker = true,
     KittenMapShow = false,
     MaidTasks = true,
+    LayerInvite = true,
 }
 
 for name, defaultValue in pairs(defaultModules) do
