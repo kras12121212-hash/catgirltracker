@@ -145,6 +145,8 @@ local function GetLayerMessage(key, ...)
     local defaults = {
         LAYER_LIST_RESPONSE = "%s is on layer %s",
         LAYER_LIST_MISSING = "%s Missing Nova World Buffs or not Determined Yet",
+        LAYER_INVITE_FULL = "Tryed to invite \"%s\" but has kitty brain and does not realise The group is already full nya !",
+        LAYER_INVITE_NOT_OWNER = "Tryed to invite \"%s\" but is not even the owner of their group kitty brain strikes again nya ....",
         LAYER_INVITE_PROMISE = "%s is curently in a group but promises to invite you to layer change in %d minutes nya !",
         LAYER_INVITE_LEAVE = "%s was good Kitty and invited \"%s\" to a new layer nya !",
         LAYER_INVITE_BUSY = "Sorry %s does not have time to invite you right now nya.....",
@@ -223,6 +225,27 @@ local function ScheduleInvite(requesterFull, requesterShort, layer, minutes)
     }
 end
 
+local function GetInviteBlockReason()
+    if IsInGroup and IsInGroup() then
+        local isLeader = UnitIsGroupLeader and UnitIsGroupLeader("player")
+        local isAssistant = UnitIsGroupAssistant and UnitIsGroupAssistant("player")
+        if not (isLeader or isAssistant) then
+            return "not_owner"
+        end
+        local members = GetNumGroupMembers and GetNumGroupMembers() or 0
+        if IsInRaid and IsInRaid() then
+            if members >= 40 then
+                return "full"
+            end
+        else
+            if members >= 5 then
+                return "full"
+            end
+        end
+    end
+    return nil
+end
+
 local function EnsureOwnerInviteFrame()
     if ownerInviteFrame then return ownerInviteFrame end
 
@@ -285,7 +308,7 @@ local function EnsureLayerInviteFrame()
     if layerInviteFrame then return layerInviteFrame end
 
     layerInviteFrame = CreateFrame("Frame", "CatgirlLayerInviteFrame", UIParent, "BackdropTemplate")
-    layerInviteFrame:SetSize(460, 200)
+    layerInviteFrame:SetSize(460, 230)
     layerInviteFrame:SetPoint("CENTER", UIParent, "CENTER", 0, -60)
     layerInviteFrame:SetMovable(true)
     layerInviteFrame:EnableMouse(true)
@@ -329,9 +352,14 @@ local function EnsureLayerInviteFrame()
     inviteInButton:SetPoint("TOPLEFT", minutesLabel, "BOTTOMLEFT", 0, -10)
     inviteInButton:SetText("Invite in")
 
+    local tryInviteButton = CreateFrame("Button", nil, layerInviteFrame, "UIPanelButtonTemplate")
+    tryInviteButton:SetSize(200, 22)
+    tryInviteButton:SetPoint("TOPLEFT", inviteInButton, "BOTTOMLEFT", 0, -8)
+    tryInviteButton:SetText("Try Invite to Current Group")
+
     local leaveInviteButton = CreateFrame("Button", nil, layerInviteFrame, "UIPanelButtonTemplate")
     leaveInviteButton:SetSize(200, 22)
-    leaveInviteButton:SetPoint("TOPLEFT", inviteInButton, "BOTTOMLEFT", 0, -8)
+    leaveInviteButton:SetPoint("TOPLEFT", tryInviteButton, "BOTTOMLEFT", 0, -8)
     leaveInviteButton:SetText("Leave group and Invite")
 
     local busyButton = CreateFrame("Button", nil, layerInviteFrame, "UIPanelButtonTemplate")
@@ -347,6 +375,26 @@ local function EnsureLayerInviteFrame()
         if minutes < 0 then minutes = 0 end
         SendGuildMessage(GetLayerMessage("LAYER_INVITE_PROMISE", myShortName or "Kitty", minutes))
         ScheduleInvite(layerInviteFrame.requesterFull, layerInviteFrame.requesterShort, layerInviteFrame.requestedLayer, minutes)
+    end)
+
+    tryInviteButton:SetScript("OnClick", function()
+        if not layerInviteFrame.requesterShort or not layerInviteFrame.requesterFull then
+            return
+        end
+        local reason = GetInviteBlockReason()
+        if reason == "full" then
+            SendGuildMessage(GetLayerMessage("LAYER_INVITE_FULL", layerInviteFrame.requesterShort))
+            return
+        end
+        if reason == "not_owner" then
+            SendGuildMessage(GetLayerMessage("LAYER_INVITE_NOT_OWNER", layerInviteFrame.requesterShort))
+            return
+        end
+        local ok = SafeInvite(layerInviteFrame.requesterFull)
+        if ok then
+            BroadcastInviteSent(layerInviteFrame.requesterShort, layerInviteFrame.requestedLayer)
+            layerInviteFrame:Hide()
+        end
     end)
 
     leaveInviteButton:SetScript("OnClick", function()
