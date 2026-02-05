@@ -15,6 +15,15 @@ local maidRuntime = {
     items = {},
 }
 
+local maidInstructionRuntime = {
+    updateId = nil,
+    expectedCount = 0,
+    receivedCount = 0,
+    ownerShort = nil,
+    senderShort = nil,
+    itemsByIndex = {},
+}
+
 local maidFrame = nil
 local maidInstructionText = nil
 local maidItemsText = nil
@@ -75,22 +84,39 @@ local function Decode(text)
     return s
 end
 
-local function SaveInstruction(ownerShort, instruction)
+local function SaveInstructions(ownerShort, instructions)
     CatgirlSettingsDB = CatgirlSettingsDB or {}
     CatgirlSettingsDB.maidTaskInstructions = CatgirlSettingsDB.maidTaskInstructions or {}
     CatgirlSettingsDB.maidTaskInstructions[myShortName] = CatgirlSettingsDB.maidTaskInstructions[myShortName] or {}
     local db = CatgirlSettingsDB.maidTaskInstructions[myShortName]
     db.ownerShort = ownerShort
-    db.text = instruction
+    db.instructions = {}
+    if type(instructions) == "table" then
+        for _, text in ipairs(instructions) do
+            local cleaned = tostring(text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+            if cleaned ~= "" then
+                table.insert(db.instructions, cleaned)
+            end
+        end
+    elseif instructions and instructions ~= "" then
+        table.insert(db.instructions, tostring(instructions))
+    end
+    db.text = db.instructions[1] or ""
     db.updatedAt = time()
 end
 
-local function GetSavedInstruction()
+local function GetSavedInstructions()
     CatgirlSettingsDB = CatgirlSettingsDB or {}
     CatgirlSettingsDB.maidTaskInstructions = CatgirlSettingsDB.maidTaskInstructions or {}
     CatgirlSettingsDB.maidTaskInstructions[myShortName] = CatgirlSettingsDB.maidTaskInstructions[myShortName] or {}
     local db = CatgirlSettingsDB.maidTaskInstructions[myShortName]
-    return db and db.text or ""
+    if db and type(db.instructions) == "table" then
+        return db.instructions
+    end
+    if db and db.text and db.text ~= "" then
+        return { db.text }
+    end
+    return {}
 end
 
 local function EnsureMaidFrame()
@@ -158,16 +184,23 @@ local function BuildItemsLines(items)
     return lines
 end
 
+local function BuildInstructionLines(instructions)
+    if not instructions or #instructions == 0 then
+        return { "Instructions: None." }
+    end
+    local lines = { "Instructions:" }
+    for index, text in ipairs(instructions) do
+        table.insert(lines, string.format("%d. %s", index, text))
+    end
+    return lines
+end
+
 local function UpdateMaidFrame()
     local frame = EnsureMaidFrame()
     if not frame or not maidInstructionText or not maidItemsText then return end
 
-    local instruction = GetSavedInstruction()
-    if instruction and instruction ~= "" then
-        maidInstructionText:SetText("Instructions: " .. instruction)
-    else
-        maidInstructionText:SetText("Instructions: None.")
-    end
+    local instructionLines = BuildInstructionLines(GetSavedInstructions())
+    maidInstructionText:SetText(table.concat(instructionLines, "\n"))
 
     local lines = BuildItemsLines(maidRuntime.items)
     maidItemsText:SetText(table.concat(lines, "\n"))
@@ -176,14 +209,14 @@ local function UpdateMaidFrame()
     maidItemsText:ClearAllPoints()
     maidItemsText:SetPoint("TOPLEFT", 0, -instructionHeight - 16)
 
-    local totalLines = #lines + 4
-    local height = (totalLines * 14) + instructionHeight + 40
+    local itemsHeight = maidItemsText:GetStringHeight() or 40
+    local height = instructionHeight + itemsHeight + 40
     maidContent:SetHeight(math.max(200, height))
 end
 
 local function ShouldShowFrame()
-    local instruction = GetSavedInstruction()
-    if instruction and instruction ~= "" then
+    local instructions = GetSavedInstructions()
+    if instructions and #instructions > 0 then
         return true
     end
     return maidRuntime.items and #maidRuntime.items > 0
@@ -208,6 +241,26 @@ local function FinalizeUpdate()
     end
 end
 
+local function FinalizeInstructionUpdate()
+    local instructions = {}
+    for index = 1, maidInstructionRuntime.expectedCount do
+        local text = maidInstructionRuntime.itemsByIndex[index]
+        if text and text ~= "" then
+            table.insert(instructions, text)
+        end
+    end
+
+    SaveInstructions(maidInstructionRuntime.senderShort, instructions)
+    UpdateMaidFrame()
+
+    local frame = EnsureMaidFrame()
+    if ShouldShowFrame() then
+        frame:Show()
+    else
+        frame:Hide()
+    end
+end
+
 local function HandleHeader(msg, senderShort)
     local idText, ownerShort, countText, instructionText = msg:match(
         "^MaidTasksHeader, id:(%d+), owner:([^,]+), count:(%d+), instruction:(.*)$"
@@ -221,10 +274,32 @@ local function HandleHeader(msg, senderShort)
     maidRuntime.itemsByIndex = {}
 
     local decodedInstruction = Decode(instructionText or "")
-    SaveInstruction(senderShort, decodedInstruction)
+    if decodedInstruction and decodedInstruction ~= "" then
+        SaveInstructions(senderShort, { decodedInstruction })
+    else
+        SaveInstructions(senderShort, {})
+    end
 
     if maidRuntime.expectedCount == 0 then
         FinalizeUpdate()
+    end
+end
+
+local function HandleInstructionHeader(msg, senderShort)
+    local idText, ownerShort, countText = msg:match(
+        "^MaidInstructionsHeader, id:(%d+), owner:([^,]+), count:(%d+)$"
+    )
+    if not idText then return end
+
+    maidInstructionRuntime.updateId = tonumber(idText)
+    maidInstructionRuntime.expectedCount = tonumber(countText) or 0
+    maidInstructionRuntime.receivedCount = 0
+    maidInstructionRuntime.ownerShort = ownerShort
+    maidInstructionRuntime.senderShort = senderShort
+    maidInstructionRuntime.itemsByIndex = {}
+
+    if maidInstructionRuntime.expectedCount == 0 then
+        FinalizeInstructionUpdate()
     end
 end
 
@@ -261,6 +336,31 @@ local function HandleItem(msg)
     end
 end
 
+local function HandleInstructionItem(msg)
+    local idText, indexText, text = msg:match(
+        "^MaidInstructionsItem, id:(%d+), index:(%d+), text:(.*)$"
+    )
+    if not idText then return end
+
+    local id = tonumber(idText)
+    if not maidInstructionRuntime.updateId or id ~= maidInstructionRuntime.updateId then
+        return
+    end
+
+    local index = tonumber(indexText)
+    if not index then return end
+
+    if not maidInstructionRuntime.itemsByIndex[index] then
+        maidInstructionRuntime.receivedCount = maidInstructionRuntime.receivedCount + 1
+    end
+
+    maidInstructionRuntime.itemsByIndex[index] = Decode(text or "")
+
+    if maidInstructionRuntime.receivedCount >= maidInstructionRuntime.expectedCount then
+        FinalizeInstructionUpdate()
+    end
+end
+
 C_ChatInfo.RegisterAddonMessagePrefix(addonPrefix)
 
 local f = CreateFrame("Frame")
@@ -281,8 +381,18 @@ f:SetScript("OnEvent", function(_, event, prefix, msg, channel, sender)
         return
     end
 
+    if msg:match("^MaidInstructionsHeader,") then
+        HandleInstructionHeader(msg, senderShort)
+        return
+    end
+
     if msg:match("^MaidTasksItem,") then
         HandleItem(msg)
+        return
+    end
+
+    if msg:match("^MaidInstructionsItem,") then
+        HandleInstructionItem(msg)
         return
     end
 end)

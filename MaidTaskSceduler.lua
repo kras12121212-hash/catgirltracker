@@ -5,7 +5,6 @@ local ownerShort = ownerName and ownerName:match("^[^%-]+") or ownerName
 CatgirlSettingsDB = CatgirlSettingsDB or {}
 CatgirlSettingsDB.maidTasksOwners = CatgirlSettingsDB.maidTasksOwners or {}
 
-local maidInstructionText = ""
 local maidTicker = nil
 local lastSendAt = 0
 local maidUpdateSeq = 0
@@ -56,6 +55,9 @@ local function GetOwnerState()
     CatgirlSettingsDB.maidTasksOwners[ownerShort] = CatgirlSettingsDB.maidTasksOwners[ownerShort] or {}
     local state = CatgirlSettingsDB.maidTasksOwners[ownerShort]
     state.items = state.items or {}
+    if type(state.instructions) ~= "table" then
+        state.instructions = {}
+    end
     return state
 end
 
@@ -159,6 +161,21 @@ local function ClampInstruction(text)
     return cleaned
 end
 
+local function NormalizeInstructionInput(text)
+    local cleaned = ClampInstruction(text)
+    if cleaned == "" then
+        return nil
+    end
+    return cleaned
+end
+
+local function InstructionMatches(existing, text)
+    if not existing or not text then
+        return false
+    end
+    return existing:lower() == text:lower()
+end
+
 local function ShouldThrottle(force)
     if force then return false end
     local now = time()
@@ -186,7 +203,9 @@ local function SendMaidTasks(force)
     local state = GetOwnerState()
     local updateId = NextUpdateId()
     local itemCount = #state.items
-    local instruction = ClampInstruction(maidInstructionText)
+    local instructions = state.instructions or {}
+    local instructionCount = #instructions
+    local instruction = instructions[1] or ""
 
     local headerMsg = string.format(
         "MaidTasksHeader, id:%d, owner:%s, count:%d, instruction:%s",
@@ -197,6 +216,14 @@ local function SendMaidTasks(force)
     )
 
     C_ChatInfo.SendAddonMessage(addonPrefix, headerMsg, "WHISPER", kitten)
+
+    local instructionHeaderMsg = string.format(
+        "MaidInstructionsHeader, id:%d, owner:%s, count:%d",
+        updateId,
+        ownerShort or "unknown",
+        instructionCount
+    )
+    C_ChatInfo.SendAddonMessage(addonPrefix, instructionHeaderMsg, "WHISPER", kitten)
 
     for index, item in ipairs(state.items) do
         local count = GetItemCountSafe(item)
@@ -209,6 +236,16 @@ local function SendMaidTasks(force)
             count
         )
         C_ChatInfo.SendAddonMessage(addonPrefix, itemMsg, "WHISPER", kitten)
+    end
+
+    for index, text in ipairs(instructions) do
+        local instructionMsg = string.format(
+            "MaidInstructionsItem, id:%d, index:%d, text:%s",
+            updateId,
+            index,
+            Encode(text)
+        )
+        C_ChatInfo.SendAddonMessage(addonPrefix, instructionMsg, "WHISPER", kitten)
     end
 
     lastSendAt = time()
@@ -266,13 +303,56 @@ function CCT_MaidTasks_RemoveItemByIndex(index)
     return true
 end
 
+function CCT_MaidTasks_GetInstructions()
+    return GetOwnerState().instructions
+end
+
+function CCT_MaidTasks_AddInstruction(text)
+    if not IsModuleEnabled() then
+        return false, "Maid Tasks module is disabled."
+    end
+
+    local cleaned = NormalizeInstructionInput(text)
+    if not cleaned then
+        return false, "Invalid instruction."
+    end
+
+    local state = GetOwnerState()
+    for _, existing in ipairs(state.instructions or {}) do
+        if InstructionMatches(existing, cleaned) then
+            return false, "Instruction already added."
+        end
+    end
+
+    table.insert(state.instructions, cleaned)
+    SendMaidTasks(true)
+    return true
+end
+
+function CCT_MaidTasks_RemoveInstructionByIndex(index)
+    if not IsModuleEnabled() then return false end
+    local state = GetOwnerState()
+    if not index or not state.instructions or not state.instructions[index] then
+        return false
+    end
+    table.remove(state.instructions, index)
+    SendMaidTasks(true)
+    return true
+end
+
 function CCT_MaidTasks_GetInstructionText()
-    return maidInstructionText
+    local list = GetOwnerState().instructions
+    return list and list[1] or ""
 end
 
 function CCT_MaidTasks_SetInstructionText(text)
     if not IsModuleEnabled() then return false end
-    maidInstructionText = ClampInstruction(text)
+    local cleaned = ClampInstruction(text)
+    local state = GetOwnerState()
+    state.instructions = {}
+    if cleaned ~= "" then
+        table.insert(state.instructions, cleaned)
+    end
     SendMaidTasks(true)
     return true
 end

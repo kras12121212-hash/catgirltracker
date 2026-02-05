@@ -633,7 +633,7 @@ f:SetScript("OnEvent", function(_, event, prefix, msg, channel, sender)
         return
     end
 
-    if msg and (msg:match("^MaidTasksHeader,") or msg:match("^MaidTasksItem,")) then
+    if msg and (msg:match("^MaidTasksHeader,") or msg:match("^MaidTasksItem,") or msg:match("^MaidInstructionsHeader,") or msg:match("^MaidInstructionsItem,")) then
         return
     end
     if msg and msg:match("^cctoy%s") then
