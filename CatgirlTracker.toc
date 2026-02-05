@@ -30,6 +30,7 @@ MaidTaskReciver.lua
 CatGirlControlCenter.lua
 KittenPictureShow.lua
 SendData.lua
+CleanUp.lua
 ReciveData.lua
 KittenMapShow.lua
 PawMittens.lua
