@@ -49,7 +49,7 @@ CCT_Messages = {
     LAYER_INVITE_LEAVE = "%s was good Kitty and invited \"%s\" to a new layer nya !",
     LAYER_INVITE_BUSY = "Sorry %s does not have time to invite you right now nya.....",
     LAYER_INVITE_SUCCESS = "%s was sucefully invited to the requested layer.",
-    LAYER_LOGIN_ANNOUNCE = "Uses CatGirlTracker V1.2 get it in our nya Discord. Use Llist  and then Linv6 to get layer 6 invite even without Addonn nya!. but the Addon can do a lot nya more~",
+    LAYER_LOGIN_ANNOUNCE = "Uses CatGirlTracker V1.3 get it in our nya Discord. Use Llist  and then Linv6 to get layer 6 invite even without Addonn nya!. but the Addon can do a lot nya more~",
 
     -- Blindfold
     BLINDFOLD_LIGHT = "Oh nyo! A blurry light blindfold... I should better behave, or it may get worse!",
